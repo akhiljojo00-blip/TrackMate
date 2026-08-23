@@ -380,6 +380,11 @@ class _MapScreenState extends State<MapScreen> {
     final currentLatLng = locationProvider.currentLatLng;
     final isSharing = locationProvider.isTracking;
 
+    // Ensure connection streams are initialized for current user
+    if (currentUid != null) {
+      connectionProvider.initializeForUser(currentUid);
+    }
+
     // Listen to authorized friends locations
     if (currentUid != null && connectionProvider.connections.isNotEmpty) {
       locationProvider.listenToAuthorizedFriends(currentUid, connectionProvider.connections);

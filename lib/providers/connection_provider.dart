@@ -9,6 +9,7 @@ class ConnectionProvider extends ChangeNotifier {
 
   List<ConnectionUser> _connections = [];
   List<ConnectionRequestModel> _incomingRequests = [];
+  List<ConnectionRequestModel> _sentRequests = [];
   List<UserModel> _searchResults = [];
   final Set<String> _pendingSentTargetUids = {};
 
@@ -19,16 +20,25 @@ class ConnectionProvider extends ChangeNotifier {
 
   StreamSubscription<List<ConnectionUser>>? _connectionsSub;
   StreamSubscription<List<ConnectionRequestModel>>? _requestsSub;
+  StreamSubscription<List<ConnectionRequestModel>>? _sentRequestsSub;
 
   List<ConnectionUser> get connections => _connections;
   List<ConnectionRequestModel> get incomingRequests => _incomingRequests;
+  List<ConnectionRequestModel> get sentRequests => _sentRequests;
   List<UserModel> get searchResults => _searchResults;
   bool get isLoading => _isLoading;
   bool get isSearching => _isSearching;
   String? get searchError => _searchError;
+  String? get currentUid => _currentUid;
 
   void initializeForUser(String uid) {
-    if (_currentUid == uid) return;
+    if (_currentUid == uid &&
+        _connectionsSub != null &&
+        _requestsSub != null &&
+        _sentRequestsSub != null) {
+      return;
+    }
+
     _currentUid = uid;
     _cancelSubscriptions();
 
@@ -51,6 +61,19 @@ class ConnectionProvider extends ChangeNotifier {
         debugPrint('Error listening to incoming requests: $e');
       },
     );
+
+    _sentRequestsSub = _databaseService.getSentRequestsStream(uid).listen(
+      (sent) {
+        _sentRequests = sent;
+        _pendingSentTargetUids.removeWhere(
+          (targetUid) => !_sentRequests.any((r) => r.receiverUid == targetUid),
+        );
+        notifyListeners();
+      },
+      onError: (e) {
+        debugPrint('Error listening to sent requests: $e');
+      },
+    );
   }
 
   void clear() {
@@ -58,6 +81,7 @@ class ConnectionProvider extends ChangeNotifier {
     _currentUid = null;
     _connections = [];
     _incomingRequests = [];
+    _sentRequests = [];
     _searchResults = [];
     _pendingSentTargetUids.clear();
     _isSearching = false;
@@ -70,6 +94,8 @@ class ConnectionProvider extends ChangeNotifier {
     _connectionsSub = null;
     _requestsSub?.cancel();
     _requestsSub = null;
+    _sentRequestsSub?.cancel();
+    _sentRequestsSub = null;
   }
 
   void _setLoading(bool value) {
@@ -82,7 +108,8 @@ class ConnectionProvider extends ChangeNotifier {
   }
 
   bool isRequestPending(String targetUid) {
-    return _pendingSentTargetUids.contains(targetUid);
+    return _pendingSentTargetUids.contains(targetUid) ||
+        _sentRequests.any((r) => r.receiverUid == targetUid);
   }
 
   Future<void> searchUsers(String query, String currentUid) async {
@@ -192,6 +219,7 @@ class ConnectionProvider extends ChangeNotifier {
         targetUid: targetUid,
       );
       _pendingSentTargetUids.remove(targetUid);
+      notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Error canceling sent request: $e');

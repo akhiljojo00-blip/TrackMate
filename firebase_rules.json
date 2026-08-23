@@ -1,8 +1,9 @@
 {
   "rules": {
     "users": {
+      ".read": "auth != null",
+      ".indexOn": ["username"],
       "$uid": {
-        ".read": "auth != null",
         ".write": "auth != null && auth.uid === $uid"
       }
     },
@@ -10,6 +11,14 @@
       "$receiverUid": {
         ".read": "auth != null && auth.uid === $receiverUid",
         "$senderUid": {
+          ".write": "auth != null && (auth.uid === $senderUid || auth.uid === $receiverUid)"
+        }
+      }
+    },
+    "sent_requests": {
+      "$senderUid": {
+        ".read": "auth != null && auth.uid === $senderUid",
+        "$receiverUid": {
           ".write": "auth != null && (auth.uid === $senderUid || auth.uid === $receiverUid)"
         }
       }
@@ -24,6 +33,18 @@
       "$chatId": {
         ".read": "auth != null",
         ".write": "auth != null"
+      }
+    },
+    "locations": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "location_permissions": {
+      "$ownerUid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $ownerUid"
       }
     }
   }

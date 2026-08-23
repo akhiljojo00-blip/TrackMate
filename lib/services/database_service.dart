@@ -17,6 +17,7 @@ class DatabaseService {
   DatabaseReference get _locationPermissionsRef => _db.ref(AppConstants.locationPermissionsPath);
   DatabaseReference get _connectionsRef => _db.ref(AppConstants.connectionsPath);
   DatabaseReference get _connectionRequestsRef => _db.ref(AppConstants.connectionRequestsPath);
+  DatabaseReference get _sentRequestsRef => _db.ref(AppConstants.sentRequestsPath);
   DatabaseReference get _chatsRef => _db.ref(AppConstants.chatsPath);
 
   // User Profile Methods
@@ -87,10 +88,12 @@ class DatabaseService {
       status: 'pending',
     );
 
-    await _connectionRequestsRef
-        .child(targetUid)
-        .child(sender.uid)
-        .set(request.toMap());
+    final Map<String, dynamic> updates = {
+      '${AppConstants.connectionRequestsPath}/$targetUid/${sender.uid}': request.toMap(),
+      '${AppConstants.sentRequestsPath}/${sender.uid}/$targetUid': request.toMap(),
+    };
+
+    await _db.ref().update(updates);
   }
 
   Future<void> respondToConnectionRequest({
@@ -122,11 +125,16 @@ class DatabaseService {
         '${AppConstants.connectionsPath}/$currentUid/$targetUid': connectionForCurrent.toMap(),
         '${AppConstants.connectionsPath}/$targetUid/$currentUid': connectionForSender.toMap(),
         '${AppConstants.connectionRequestsPath}/$currentUid/$targetUid': null,
+        '${AppConstants.sentRequestsPath}/$targetUid/$currentUid': null,
       };
 
       await _db.ref().update(updates);
     } else {
-      await _connectionRequestsRef.child(currentUid).child(targetUid).remove();
+      final Map<String, dynamic> updates = {
+        '${AppConstants.connectionRequestsPath}/$currentUid/$targetUid': null,
+        '${AppConstants.sentRequestsPath}/$targetUid/$currentUid': null,
+      };
+      await _db.ref().update(updates);
     }
   }
 
@@ -134,7 +142,11 @@ class DatabaseService {
     required String currentUid,
     required String targetUid,
   }) async {
-    await _connectionRequestsRef.child(targetUid).child(currentUid).remove();
+    final Map<String, dynamic> updates = {
+      '${AppConstants.connectionRequestsPath}/$targetUid/$currentUid': null,
+      '${AppConstants.sentRequestsPath}/$currentUid/$targetUid': null,
+    };
+    await _db.ref().update(updates);
   }
 
   // Connections & Streams
@@ -152,6 +164,23 @@ class DatabaseService {
         }
       }
       requests.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return requests;
+    });
+  }
+
+  Stream<List<ConnectionRequestModel>> getSentRequestsStream(String currentUid) {
+    return _sentRequestsRef.child(currentUid).onValue.map((event) {
+      final List<ConnectionRequestModel> requests = [];
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final value = event.snapshot.value;
+        if (value is Map) {
+          value.forEach((key, map) {
+            if (map is Map) {
+              requests.add(ConnectionRequestModel.fromMap(map, senderUid: currentUid, receiverUid: key.toString()));
+            }
+          });
+        }
+      }
       return requests;
     });
   }
@@ -272,5 +301,6 @@ class DatabaseService {
   DatabaseReference get locationPermissionsRef => _locationPermissionsRef;
   DatabaseReference get connectionsRef => _connectionsRef;
   DatabaseReference get connectionRequestsRef => _connectionRequestsRef;
+  DatabaseReference get sentRequestsRef => _sentRequestsRef;
   DatabaseReference get chatsRef => _chatsRef;
 }

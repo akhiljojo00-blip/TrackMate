@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../chat/chat_screen.dart';
@@ -35,9 +36,36 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
     super.dispose();
   }
 
+  UserModel? _getCurrentUser(AuthProvider authProvider) {
+    final userModel = authProvider.userModel;
+    if (userModel != null) return userModel;
+
+    final user = authProvider.user;
+    if (user != null) {
+      final fallbackUsername = (user.email?.split('@').first ?? 'user').toLowerCase().trim();
+      final fallbackName = user.displayName?.isNotEmpty == true ? user.displayName! : fallbackUsername;
+      return UserModel(
+        uid: user.uid,
+        name: fallbackName,
+        username: fallbackUsername,
+        email: user.email ?? '',
+        isLocationSharing: false,
+        createdAt: DateTime.now().millisecondsSinceEpoch,
+      );
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
     final connectionProvider = context.watch<ConnectionProvider>();
+    final user = authProvider.user;
+
+    if (user != null) {
+      connectionProvider.initializeForUser(user.uid);
+    }
+
     final pendingCount = connectionProvider.incomingRequests.length;
 
     return Scaffold(
@@ -82,7 +110,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
   Widget _buildDiscoverTab() {
     final authProvider = context.watch<AuthProvider>();
     final connectionProvider = context.watch<ConnectionProvider>();
-    final currentUser = authProvider.userModel;
+    final currentUser = _getCurrentUser(authProvider);
 
     return Column(
       children: [
@@ -332,7 +360,7 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
   Widget _buildRequestsTab() {
     final connectionProvider = context.watch<ConnectionProvider>();
     final authProvider = context.watch<AuthProvider>();
-    final currentUser = authProvider.userModel;
+    final currentUser = _getCurrentUser(authProvider);
     final requests = connectionProvider.incomingRequests;
 
     if (requests.isEmpty) {

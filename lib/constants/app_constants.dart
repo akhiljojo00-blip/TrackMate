@@ -8,6 +8,7 @@ class AppConstants {
   static const String locationPermissionsPath = 'location_permissions';
   static const String connectionsPath = 'connections';
   static const String connectionRequestsPath = 'connection_requests';
+  static const String sentRequestsPath = 'sent_requests';
   static const String chatsPath = 'chats';
   static const String messagesPath = 'messages';
 }
