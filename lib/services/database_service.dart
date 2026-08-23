@@ -14,6 +14,7 @@ class DatabaseService {
 
   DatabaseReference get _usersRef => _db.ref(AppConstants.usersPath);
   DatabaseReference get _locationsRef => _db.ref(AppConstants.locationsPath);
+  DatabaseReference get _locationPermissionsRef => _db.ref(AppConstants.locationPermissionsPath);
   DatabaseReference get _connectionsRef => _db.ref(AppConstants.connectionsPath);
   DatabaseReference get _connectionRequestsRef => _db.ref(AppConstants.connectionRequestsPath);
   DatabaseReference get _chatsRef => _db.ref(AppConstants.chatsPath);
@@ -36,6 +37,10 @@ class DatabaseService {
 
   Stream<DatabaseEvent> getUserStream(String uid) {
     return _usersRef.child(uid).onValue;
+  }
+
+  Future<void> updateLocationSharingConsent(String uid, bool isSharing) async {
+    await _usersRef.child(uid).update({'isLocationSharing': isSharing});
   }
 
   // User Search (by username prefix, strictly excluding GPS and filtering out current user)
@@ -216,17 +221,55 @@ class DatabaseService {
     });
   }
 
-  // Location Methods
-  Future<void> updateUserLocation(LocationModel location) async {
-    await _locationsRef.child(location.userId).set(location.toMap());
+  // Location & Directional Permission Methods
+  Future<void> updateUserLocation(String uid, LocationModel location) async {
+    await _locationsRef.child(uid).set(location.toMap());
   }
 
-  Stream<DatabaseEvent> getUserLocationStream(String userId) {
-    return _locationsRef.child(userId).onValue;
+  Future<void> clearUserLocation(String uid) async {
+    await _locationsRef.child(uid).remove();
+  }
+
+  Future<void> setLocationSharingPermission({
+    required String ownerUid,
+    required String friendUid,
+    required bool isAllowed,
+  }) async {
+    await _locationPermissionsRef
+        .child(ownerUid)
+        .child(friendUid)
+        .set(isAllowed);
+  }
+
+  Stream<bool> getLocationPermissionStream(String ownerUid, String friendUid) {
+    return _locationPermissionsRef
+        .child(ownerUid)
+        .child(friendUid)
+        .onValue
+        .map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        return event.snapshot.value as bool? ?? false;
+      }
+      return false;
+    });
+  }
+
+  Stream<LocationModel?> getUserLocationStream(String targetUid) {
+    return _locationsRef.child(targetUid).onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final value = event.snapshot.value;
+        if (value is Map) {
+          return LocationModel.fromMap(value, targetUid);
+        }
+      }
+      return null;
+    });
   }
 
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
+  DatabaseReference get locationsRef => _locationsRef;
+  DatabaseReference get locationPermissionsRef => _locationPermissionsRef;
   DatabaseReference get connectionsRef => _connectionsRef;
   DatabaseReference get connectionRequestsRef => _connectionRequestsRef;
   DatabaseReference get chatsRef => _chatsRef;
