@@ -1,4 +1,4 @@
-package com.trackmate.trackmate
+package com.trackmate
 
 import io.flutter.embedding.android.FlutterActivity
 

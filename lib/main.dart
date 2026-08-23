@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -11,13 +12,26 @@ import 'screens/auth/login_screen.dart';
 import 'screens/map/map_screen.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint('Firebase initialization notice: $e');
-  }
-  runApp(const TrackmateApp());
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+      debugPrint('Flutter Error: ${details.exceptionAsString()}');
+    };
+
+    try {
+      await Firebase.initializeApp();
+    } catch (e, stackTrace) {
+      debugPrint('Firebase initialization notice: $e');
+      debugPrint('Stack trace: $stackTrace');
+    }
+
+    runApp(const TrackmateApp());
+  }, (error, stackTrace) {
+    debugPrint('Uncaught asynchronous error: $error');
+    debugPrint('Stack trace: $stackTrace');
+  });
 }
 
 class TrackmateApp extends StatelessWidget {
