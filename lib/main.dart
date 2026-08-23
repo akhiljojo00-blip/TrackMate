@@ -1,0 +1,58 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'config/theme.dart';
+import 'constants/app_constants.dart';
+import 'providers/auth_provider.dart';
+import 'providers/location_provider.dart';
+import 'providers/connection_provider.dart';
+import 'providers/chat_provider.dart';
+import 'screens/auth/login_screen.dart';
+import 'screens/map/map_screen.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint('Firebase initialization notice: $e');
+  }
+  runApp(const TrackmateApp());
+}
+
+class TrackmateApp extends StatelessWidget {
+  const TrackmateApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
+        ChangeNotifierProvider(create: (_) => ConnectionProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+      ],
+      child: MaterialApp(
+        title: AppConstants.appName,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        home: const AuthWrapper(),
+      ),
+    );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+
+    if (authProvider.isAuthenticated) {
+      return const MapScreen();
+    } else {
+      return const LoginScreen();
+    }
+  }
+}

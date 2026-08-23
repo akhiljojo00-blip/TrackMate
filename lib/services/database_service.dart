@@ -1,0 +1,233 @@
+import 'package:firebase_database/firebase_database.dart';
+import '../constants/app_constants.dart';
+import '../models/user_model.dart';
+import '../models/location_model.dart';
+import '../models/connection_model.dart';
+import '../models/message_model.dart';
+
+class DatabaseService {
+  final FirebaseDatabase? _customDb;
+
+  DatabaseService({FirebaseDatabase? database}) : _customDb = database;
+
+  FirebaseDatabase get _db => _customDb ?? FirebaseDatabase.instance;
+
+  DatabaseReference get _usersRef => _db.ref(AppConstants.usersPath);
+  DatabaseReference get _locationsRef => _db.ref(AppConstants.locationsPath);
+  DatabaseReference get _connectionsRef => _db.ref(AppConstants.connectionsPath);
+  DatabaseReference get _connectionRequestsRef => _db.ref(AppConstants.connectionRequestsPath);
+  DatabaseReference get _chatsRef => _db.ref(AppConstants.chatsPath);
+
+  // User Profile Methods
+  Future<void> createUserProfile(UserModel user) async {
+    await _usersRef.child(user.uid).set(user.toMap());
+  }
+
+  Future<UserModel?> getUserProfile(String uid) async {
+    final snapshot = await _usersRef.child(uid).get();
+    if (snapshot.exists && snapshot.value != null) {
+      final value = snapshot.value;
+      if (value is Map) {
+        return UserModel.fromMap(value, uid);
+      }
+    }
+    return null;
+  }
+
+  Stream<DatabaseEvent> getUserStream(String uid) {
+    return _usersRef.child(uid).onValue;
+  }
+
+  // User Search (by username prefix, strictly excluding GPS and filtering out current user)
+  Future<List<UserModel>> searchUsersByUsername(String query, {String? currentUid}) async {
+    final trimmedQuery = query.trim().toLowerCase();
+    if (trimmedQuery.isEmpty) return [];
+
+    final snapshot = await _usersRef
+        .orderByChild('username')
+        .startAt(trimmedQuery)
+        .endAt('$trimmedQuery\uf8ff')
+        .get();
+
+    final List<UserModel> users = [];
+    if (snapshot.exists && snapshot.value != null) {
+      final value = snapshot.value;
+      if (value is Map) {
+        value.forEach((key, map) {
+          if (map is Map) {
+            final uid = key.toString();
+            if (currentUid == null || uid != currentUid) {
+              users.add(UserModel.fromMap(map, uid));
+            }
+          }
+        });
+      }
+    }
+    return users;
+  }
+
+  // Connection Requests
+  Future<void> sendConnectionRequest({
+    required UserModel sender,
+    required String targetUid,
+  }) async {
+    if (sender.uid == targetUid) return;
+
+    final request = ConnectionRequestModel(
+      senderUid: sender.uid,
+      senderName: sender.name,
+      senderUsername: sender.username,
+      receiverUid: targetUid,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
+      status: 'pending',
+    );
+
+    await _connectionRequestsRef
+        .child(targetUid)
+        .child(sender.uid)
+        .set(request.toMap());
+  }
+
+  Future<void> respondToConnectionRequest({
+    required UserModel currentUser,
+    required ConnectionRequestModel request,
+    required bool accept,
+  }) async {
+    final targetUid = request.senderUid;
+    final currentUid = currentUser.uid;
+
+    if (accept) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      final connectionForCurrent = ConnectionUser(
+        uid: targetUid,
+        name: request.senderName,
+        username: request.senderUsername,
+        connectedAt: now,
+      );
+
+      final connectionForSender = ConnectionUser(
+        uid: currentUid,
+        name: currentUser.name,
+        username: currentUser.username,
+        connectedAt: now,
+      );
+
+      final Map<String, dynamic> updates = {
+        '${AppConstants.connectionsPath}/$currentUid/$targetUid': connectionForCurrent.toMap(),
+        '${AppConstants.connectionsPath}/$targetUid/$currentUid': connectionForSender.toMap(),
+        '${AppConstants.connectionRequestsPath}/$currentUid/$targetUid': null,
+      };
+
+      await _db.ref().update(updates);
+    } else {
+      await _connectionRequestsRef.child(currentUid).child(targetUid).remove();
+    }
+  }
+
+  Future<void> cancelSentRequest({
+    required String currentUid,
+    required String targetUid,
+  }) async {
+    await _connectionRequestsRef.child(targetUid).child(currentUid).remove();
+  }
+
+  // Connections & Streams
+  Stream<List<ConnectionRequestModel>> getIncomingRequestsStream(String currentUid) {
+    return _connectionRequestsRef.child(currentUid).onValue.map((event) {
+      final List<ConnectionRequestModel> requests = [];
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final value = event.snapshot.value;
+        if (value is Map) {
+          value.forEach((key, map) {
+            if (map is Map) {
+              requests.add(ConnectionRequestModel.fromMap(map, senderUid: key.toString(), receiverUid: currentUid));
+            }
+          });
+        }
+      }
+      requests.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+      return requests;
+    });
+  }
+
+  Stream<List<ConnectionUser>> getConnectionsStream(String currentUid) {
+    return _connectionsRef.child(currentUid).onValue.map((event) {
+      final List<ConnectionUser> connections = [];
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final value = event.snapshot.value;
+        if (value is Map) {
+          value.forEach((key, map) {
+            if (map is Map) {
+              connections.add(ConnectionUser.fromMap(map, key.toString()));
+            }
+          });
+        }
+      }
+      connections.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      return connections;
+    });
+  }
+
+  Future<void> removeConnection(String currentUid, String targetUid) async {
+    final Map<String, dynamic> updates = {
+      '${AppConstants.connectionsPath}/$currentUid/$targetUid': null,
+      '${AppConstants.connectionsPath}/$targetUid/$currentUid': null,
+    };
+    await _db.ref().update(updates);
+  }
+
+  // Real-Time 1-to-1 Chat Operations
+  String getChatId(String uidA, String uidB) {
+    final sorted = [uidA, uidB]..sort();
+    return '${sorted[0]}_${sorted[1]}';
+  }
+
+  Future<void> sendMessage({
+    required String chatId,
+    required MessageModel message,
+  }) async {
+    final messageRef = _chatsRef.child(chatId).child(AppConstants.messagesPath).push();
+    final newId = messageRef.key ?? DateTime.now().millisecondsSinceEpoch.toString();
+    final messageToSave = message.copyWith(id: newId);
+    await messageRef.set(messageToSave.toMap());
+  }
+
+  Stream<List<MessageModel>> getMessagesStream(String chatId) {
+    return _chatsRef
+        .child(chatId)
+        .child(AppConstants.messagesPath)
+        .orderByChild('timestamp')
+        .onValue
+        .map((event) {
+      final List<MessageModel> messages = [];
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final value = event.snapshot.value;
+        if (value is Map) {
+          value.forEach((key, map) {
+            if (map is Map) {
+              messages.add(MessageModel.fromMap(map, key.toString()));
+            }
+          });
+        }
+      }
+      messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      return messages;
+    });
+  }
+
+  // Location Methods
+  Future<void> updateUserLocation(LocationModel location) async {
+    await _locationsRef.child(location.userId).set(location.toMap());
+  }
+
+  Stream<DatabaseEvent> getUserLocationStream(String userId) {
+    return _locationsRef.child(userId).onValue;
+  }
+
+  // Reference Getters
+  DatabaseReference get usersRef => _usersRef;
+  DatabaseReference get connectionsRef => _connectionsRef;
+  DatabaseReference get connectionRequestsRef => _connectionRequestsRef;
+  DatabaseReference get chatsRef => _chatsRef;
+}

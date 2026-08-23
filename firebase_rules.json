@@ -1,0 +1,30 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "connection_requests": {
+      "$receiverUid": {
+        ".read": "auth != null && auth.uid === $receiverUid",
+        "$senderUid": {
+          ".write": "auth != null && (auth.uid === $senderUid || auth.uid === $receiverUid)"
+        }
+      }
+    },
+    "connections": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null"
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}
