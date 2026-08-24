@@ -72,6 +72,15 @@ class DatabaseService {
     await _usersRef.child(uid).update({'isLocationSharing': isSharing});
   }
 
+  Future<void> updateUserProfile(String uid, Map<String, dynamic> updates) async {
+    // Exclude protected fields from being modified
+    updates.remove('email');
+    updates.remove('username');
+    updates.remove('createdAt');
+    updates.remove('uid');
+    await _usersRef.child(uid).update(updates);
+  }
+
   // Device Token Management (FCM-2)
   Future<void> saveUserDeviceToken(String uid, String token) async {
     await _userTokensRef.child(uid).child('primary').set({

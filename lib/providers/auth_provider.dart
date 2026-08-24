@@ -189,6 +189,53 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateProfile({
+    required String name,
+    String? bio,
+    String? emergencyContact,
+    int? avatarPresetIndex,
+  }) async {
+    if (_user == null) return false;
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      final trimmedName = name.trim();
+      if (trimmedName.isEmpty) {
+        _errorMessage = 'Name cannot be empty';
+        _setLoading(false);
+        return false;
+      }
+
+      final updates = <String, dynamic>{
+        'name': trimmedName,
+        'bio': bio?.trim(),
+        'emergencyContact': emergencyContact?.trim(),
+        'avatarPresetIndex': avatarPresetIndex,
+      };
+
+      await _databaseService.updateUserProfile(_user!.uid, updates);
+
+      if (_userModel != null) {
+        _userModel = _userModel!.copyWith(
+          name: trimmedName,
+          bio: bio?.trim(),
+          emergencyContact: emergencyContact?.trim(),
+          avatarPresetIndex: avatarPresetIndex,
+        );
+      } else {
+        await _loadUserProfile(_user!.uid);
+      }
+
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _errorMessage = 'Failed to update profile: ${e.toString()}';
+      _setLoading(false);
+      return false;
+    }
+  }
+
   Future<void> signOut() async {
     _setLoading(true);
     try {

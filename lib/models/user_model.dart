@@ -5,6 +5,9 @@ class UserModel {
   final String email;
   final bool isLocationSharing;
   final int createdAt;
+  final String? bio;
+  final String? emergencyContact;
+  final int? avatarPresetIndex;
 
   const UserModel({
     required this.uid,
@@ -13,6 +16,9 @@ class UserModel {
     required this.email,
     this.isLocationSharing = false,
     required this.createdAt,
+    this.bio,
+    this.emergencyContact,
+    this.avatarPresetIndex,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,6 +29,9 @@ class UserModel {
       'email': email.trim(),
       'isLocationSharing': isLocationSharing,
       'createdAt': createdAt,
+      'bio': bio,
+      'emergencyContact': emergencyContact,
+      'avatarPresetIndex': avatarPresetIndex,
     };
   }
 
@@ -34,6 +43,9 @@ class UserModel {
       email: map['email']?.toString().trim() ?? '',
       isLocationSharing: map['isLocationSharing'] as bool? ?? false,
       createdAt: (map['createdAt'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      bio: map['bio']?.toString(),
+      emergencyContact: map['emergencyContact']?.toString(),
+      avatarPresetIndex: (map['avatarPresetIndex'] as num?)?.toInt(),
     );
   }
 
@@ -44,6 +56,9 @@ class UserModel {
     String? email,
     bool? isLocationSharing,
     int? createdAt,
+    String? bio,
+    String? emergencyContact,
+    int? avatarPresetIndex,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -52,6 +67,9 @@ class UserModel {
       email: email ?? this.email,
       isLocationSharing: isLocationSharing ?? this.isLocationSharing,
       createdAt: createdAt ?? this.createdAt,
+      bio: bio ?? this.bio,
+      emergencyContact: emergencyContact ?? this.emergencyContact,
+      avatarPresetIndex: avatarPresetIndex ?? this.avatarPresetIndex,
     );
   }
 }

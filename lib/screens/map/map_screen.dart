@@ -16,6 +16,8 @@ import '../../widgets/emergency_alert_dialog.dart';
 import '../../widgets/friends_map_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../connections/connections_screen.dart';
+import '../profile/profile_screen.dart';
+import '../auth/login_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -680,7 +682,12 @@ class _MapScreenState extends State<MapScreen> {
               leading: const Icon(Icons.person),
               title: const Text('Profile'),
               subtitle: Text('@${userModel?.username ?? ''}'),
-              onTap: () => Navigator.of(context).pop(),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              },
             ),
             const Divider(),
             ListTile(
@@ -696,6 +703,12 @@ class _MapScreenState extends State<MapScreen> {
                 if (context.mounted) {
                   context.read<ConnectionProvider>().clear();
                   await context.read<AuthProvider>().signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
                 }
               },
             ),
