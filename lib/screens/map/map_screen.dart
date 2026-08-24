@@ -15,6 +15,7 @@ import '../../widgets/sos_button.dart';
 import '../../widgets/emergency_alert_dialog.dart';
 import '../../widgets/friends_map_sheet.dart';
 import '../chat/chat_screen.dart';
+import '../chat/chat_list_screen.dart';
 import '../connections/connections_screen.dart';
 import '../profile/profile_screen.dart';
 import '../auth/login_screen.dart';
@@ -686,6 +687,19 @@ class _MapScreenState extends State<MapScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const ConnectionsScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_bubble_outline_rounded),
+              title: const Text('Chats & Groups'),
+              subtitle: const Text('Direct and group conversations'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ChatListScreen(),
                   ),
                 );
               },
