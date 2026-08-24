@@ -8,6 +8,7 @@ import 'providers/auth_provider.dart';
 import 'providers/location_provider.dart';
 import 'providers/connection_provider.dart';
 import 'providers/chat_provider.dart';
+import 'providers/sos_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/map/map_screen.dart';
 import 'services/notification_service.dart';
@@ -47,6 +48,7 @@ class TrackmateApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocationProvider()),
         ChangeNotifierProvider(create: (_) => ConnectionProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => SosProvider()),
       ],
       child: MaterialApp(
         title: AppConstants.appName,

@@ -9,6 +9,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/sos_provider.dart';
+import '../../widgets/sos_button.dart';
 import '../chat/chat_screen.dart';
 import '../connections/connections_screen.dart';
 
@@ -656,6 +658,32 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
               ),
+            ),
+          ),
+
+          // Left Controls (Emergency SOS Button with 3-second hold guard)
+          Positioned(
+            left: 16,
+            bottom: 85,
+            child: SosButton(
+              onTriggered: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text(
+                      'Emergency SOS Beacon Activated!',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    backgroundColor: AppColors.error,
+                    action: SnackBarAction(
+                      label: 'DISMISS',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        context.read<SosProvider>().reset();
+                      },
+                    ),
+                  ),
+                );
+              },
             ),
           ),
 
