@@ -8,6 +8,7 @@ import '../../models/location_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../../providers/location_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../chat/chat_screen.dart';
 import '../connections/connections_screen.dart';
 
@@ -385,9 +386,13 @@ class _MapScreenState extends State<MapScreen> {
       connectionProvider.initializeForUser(currentUid);
     }
 
-    // Listen to authorized friends locations
+    // Listen to authorized friends locations and chats
     if (currentUid != null && connectionProvider.connections.isNotEmpty) {
       locationProvider.listenToAuthorizedFriends(currentUid, connectionProvider.connections);
+      context.read<ChatProvider>().listenToFriendChats(
+        currentUid: currentUid,
+        connections: connectionProvider.connections,
+      );
     }
 
     // Auto-center on first position if not centered yet

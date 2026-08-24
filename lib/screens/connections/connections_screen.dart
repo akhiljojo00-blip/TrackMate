@@ -4,6 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
+import '../../providers/chat_provider.dart';
 import '../chat/chat_screen.dart';
 
 class ConnectionsScreen extends StatefulWidget {
@@ -64,6 +65,12 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
 
     if (user != null) {
       connectionProvider.initializeForUser(user.uid);
+      if (connectionProvider.connections.isNotEmpty) {
+        context.read<ChatProvider>().listenToFriendChats(
+          currentUid: user.uid,
+          connections: connectionProvider.connections,
+        );
+      }
     }
 
     final pendingCount = connectionProvider.incomingRequests.length;
