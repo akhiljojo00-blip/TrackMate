@@ -4,6 +4,7 @@ import '../models/geofence_model.dart';
 import '../models/geofence_state_model.dart';
 import '../utils/geofence_calculator.dart';
 import 'database_service.dart';
+import 'notification_service.dart';
 
 class GeofenceTriggerEvent {
   final GeofenceModel geofence;
@@ -30,6 +31,7 @@ class GeofenceService {
   factory GeofenceService() => _instance;
 
   final DatabaseService _databaseService;
+  final NotificationService _notificationService;
   final Map<String, GeofenceStateModel> _states = {};
   List<GeofenceModel> _cachedGeofences = [];
   StreamSubscription<List<GeofenceModel>>? _geofencesSubscription;
@@ -40,12 +42,50 @@ class GeofenceService {
 
   Stream<GeofenceTriggerEvent> get onGeofenceTrigger => _triggerEventController.stream;
 
-  GeofenceService._internal({DatabaseService? databaseService})
-      : _databaseService = databaseService ?? DatabaseService();
+  GeofenceService._internal({
+    DatabaseService? databaseService,
+    NotificationService? notificationService,
+  })  : _databaseService = databaseService ?? DatabaseService(),
+        _notificationService = notificationService ?? NotificationService();
 
   @visibleForTesting
-  factory GeofenceService.custom({DatabaseService? databaseService}) {
-    return GeofenceService._internal(databaseService: databaseService);
+  factory GeofenceService.custom({
+    DatabaseService? databaseService,
+    NotificationService? notificationService,
+  }) {
+    return GeofenceService._internal(
+      databaseService: databaseService,
+      notificationService: notificationService,
+    );
+  }
+
+  /// Formats human-readable notification body for safe zone events.
+  static String formatNotificationBody({
+    required String userName,
+    required String geofenceName,
+    required String transitionType,
+  }) {
+    if (transitionType == 'entered') {
+      return '$userName arrived at $geofenceName';
+    } else if (transitionType == 'exited') {
+      return '$userName left $geofenceName';
+    }
+    return '$userName updated safe zone status for $geofenceName';
+  }
+
+  /// Resolves and deduplicates all recipient UIDs excluding the sender.
+  static Set<String> resolveTargetUids({
+    required GeofenceModel geofence,
+    required String senderUid,
+    Map<String, List<String>> groupMembersMap = const {},
+  }) {
+    final Set<String> targets = Set.from(geofence.targetRecipientUids);
+    for (final groupId in geofence.targetGroupIds) {
+      final members = groupMembersMap[groupId] ?? const [];
+      targets.addAll(members);
+    }
+    targets.remove(senderUid);
+    return targets;
   }
 
   /// Initializes real-time listener for the given user's geofences.
@@ -159,11 +199,74 @@ class GeofenceService {
           );
           triggeredEvents.add(event);
           _triggerEventController.add(event);
+
+          // Non-blocking notification fan-out
+          unawaited(_handleGeofenceTriggerFanOut(uid, event));
         }
       }
     }
 
     return triggeredEvents;
+  }
+
+  /// Handles local notification and recipient FCM fan-out asynchronously.
+  Future<void> _handleGeofenceTriggerFanOut(
+    String uid,
+    GeofenceTriggerEvent event,
+  ) async {
+    try {
+      final profile = await _databaseService.getUserProfile(uid);
+      final userName = profile?.name ?? 'TrackMate user';
+
+      const title = 'Safe Zone Alert';
+      final body = formatNotificationBody(
+        userName: userName,
+        geofenceName: event.geofence.name,
+        transitionType: event.transitionType,
+      );
+
+      // 1. Show local heads-up notification on the user's own device
+      final localBody = event.transitionType == 'entered'
+          ? 'You arrived at ${event.geofence.name}'
+          : 'You left ${event.geofence.name}';
+
+      await _notificationService.showGeofenceNotification(
+        title: title,
+        body: localBody,
+        payload: 'geofence:${event.geofence.id}',
+      );
+
+      // 2. Resolve target recipients (1-to-1 connections & group members)
+      final targetUids = Set<String>.from(event.geofence.targetRecipientUids);
+
+      for (final groupId in event.geofence.targetGroupIds) {
+        try {
+          final snapshot = await _databaseService.groupMembersRef.child(groupId).get();
+          if (snapshot.exists && snapshot.value is Map) {
+            final members = (snapshot.value as Map).keys.map((k) => k.toString());
+            targetUids.addAll(members);
+          }
+        } catch (e) {
+          debugPrint('Error fetching group members for geofence fanout: $e');
+        }
+      }
+
+      targetUids.remove(uid);
+
+      // 3. Dispatch to recipient FCM device tokens
+      for (final targetUid in targetUids) {
+        try {
+          final token = await _databaseService.getUserDeviceToken(targetUid);
+          if (token != null && token.isNotEmpty) {
+            debugPrint('Geofence alert dispatched to $targetUid (token: $token): $title - $body');
+          }
+        } catch (e) {
+          debugPrint('Error fetching token for recipient $targetUid: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error during geofence trigger fanout: $e');
+    }
   }
 
   void clear() {

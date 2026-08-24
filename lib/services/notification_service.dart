@@ -13,11 +13,39 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
-  NotificationService._internal();
 
-  final FirebaseMessaging _fcm = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
-  final DatabaseService _databaseService = DatabaseService();
+  final FirebaseMessaging? _customFcm;
+  final FlutterLocalNotificationsPlugin _localNotifications;
+  final DatabaseService _databaseService;
+
+  NotificationService._internal({
+    FirebaseMessaging? fcm,
+    FlutterLocalNotificationsPlugin? localNotifications,
+    DatabaseService? databaseService,
+  })  : _customFcm = fcm,
+        _localNotifications = localNotifications ?? FlutterLocalNotificationsPlugin(),
+        _databaseService = databaseService ?? DatabaseService();
+
+  @visibleForTesting
+  factory NotificationService.custom({
+    FirebaseMessaging? fcm,
+    FlutterLocalNotificationsPlugin? localNotifications,
+    DatabaseService? databaseService,
+  }) {
+    return NotificationService._internal(
+      fcm: fcm,
+      localNotifications: localNotifications,
+      databaseService: databaseService,
+    );
+  }
+
+  FirebaseMessaging? get _fcm {
+    try {
+      return _customFcm ?? FirebaseMessaging.instance;
+    } catch (_) {
+      return null;
+    }
+  }
   
   String? _deviceToken;
   bool _isLocalNotificationsInitialized = false;
@@ -28,6 +56,10 @@ class NotificationService {
   static const String _channelName = 'TrackMate Notifications';
   static const String _channelDescription = 'Alerts for friend requests, connections, and messages';
 
+  static const String _geofenceChannelId = 'geofence_channel';
+  static const String _geofenceChannelName = 'Safe Zone Alerts';
+  static const String _geofenceChannelDescription = 'Alerts for entering and leaving designated safe zones';
+
   static const AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
     _channelId,
     _channelName,
@@ -36,13 +68,27 @@ class NotificationService {
     playSound: true,
   );
 
+  static const AndroidNotificationChannel _geofenceAndroidChannel = AndroidNotificationChannel(
+    _geofenceChannelId,
+    _geofenceChannelName,
+    description: _geofenceChannelDescription,
+    importance: Importance.high,
+    playSound: true,
+  );
+
   Future<void> initialize() async {
     try {
+      final fcm = _fcm;
+      if (fcm == null) {
+        await _initializeLocalNotifications();
+        return;
+      }
+
       // Register top-level background handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
       // Request FCM permissions
-      final NotificationSettings settings = await _fcm.requestPermission(
+      final NotificationSettings settings = await fcm.requestPermission(
         alert: true,
         announcement: false,
         badge: true,
@@ -55,7 +101,7 @@ class NotificationService {
       debugPrint('FCM permission authorization status: ${settings.authorizationStatus}');
 
       // Configure foreground presentation options
-      await _fcm.setForegroundNotificationPresentationOptions(
+      await fcm.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
@@ -89,13 +135,13 @@ class NotificationService {
       });
 
       // 3. Initial message when app opened from terminated state
-      final RemoteMessage? initialMessage = await _fcm.getInitialMessage();
+      final RemoteMessage? initialMessage = await fcm.getInitialMessage();
       if (initialMessage != null) {
         debugPrint('FCM app opened from terminated state via notification: ${initialMessage.messageId}');
       }
 
       // 4. Token refresh listener
-      _fcm.onTokenRefresh.listen((newToken) async {
+      fcm.onTokenRefresh.listen((newToken) async {
         _deviceToken = newToken;
         debugPrint('FCM registration token refreshed successfully');
 
@@ -143,6 +189,7 @@ class NotificationService {
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
       if (androidImplementation != null) {
         await androidImplementation.createNotificationChannel(_androidChannel);
+        await androidImplementation.createNotificationChannel(_geofenceAndroidChannel);
       }
 
       _isLocalNotificationsInitialized = true;
@@ -156,25 +203,28 @@ class NotificationService {
     required String title,
     required String body,
     String? payload,
+    String channelId = _channelId,
+    String channelName = _channelName,
+    String channelDescription = _channelDescription,
   }) async {
     try {
       if (!_isLocalNotificationsInitialized) {
         await _initializeLocalNotifications();
       }
 
-      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-        _channelId,
-        _channelName,
-        channelDescription: _channelDescription,
+      final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        channelId,
+        channelName,
+        channelDescription: channelDescription,
         importance: Importance.high,
         priority: Priority.high,
         showWhen: true,
         icon: '@mipmap/ic_launcher',
       );
 
-      const NotificationDetails platformDetails = NotificationDetails(
+      final NotificationDetails platformDetails = NotificationDetails(
         android: androidDetails,
-        iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
+        iOS: const DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
       );
 
       await _localNotifications.show(
@@ -189,7 +239,23 @@ class NotificationService {
     }
   }
 
-  // Application Notification Triggers (FCM-5, FCM-6, FCM-7)
+  // Application Notification Triggers (FCM-5, FCM-6, FCM-7, FCM-Geofence)
+  Future<void> showGeofenceNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    await _showLocalNotification(
+      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title: title,
+      body: body,
+      payload: payload,
+      channelId: _geofenceChannelId,
+      channelName: _geofenceChannelName,
+      channelDescription: _geofenceChannelDescription,
+    );
+  }
+
   Future<void> showFriendRequestNotification({required String senderName}) async {
     await _showLocalNotification(
       id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
@@ -246,7 +312,10 @@ class NotificationService {
 
   Future<String?> getDeviceToken() async {
     try {
-      final token = await _fcm.getToken();
+      final fcm = _fcm;
+      if (fcm == null) return null;
+
+      final token = await fcm.getToken();
       _deviceToken = token;
       if (token != null && token.isNotEmpty) {
         debugPrint('FCM registration token acquired successfully');
