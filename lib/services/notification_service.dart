@@ -1,5 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'database_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -7,6 +9,7 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  final DatabaseService _databaseService = DatabaseService();
   String? _deviceToken;
 
   String? get deviceToken => _deviceToken;
@@ -30,10 +33,20 @@ class NotificationService {
         _deviceToken = await getDeviceToken();
       }
 
-      // Listen for token refresh events
-      _fcm.onTokenRefresh.listen((newToken) {
+      // Listen for token refresh events and sync to Realtime Database if authenticated
+      _fcm.onTokenRefresh.listen((newToken) async {
         _deviceToken = newToken;
-        debugPrint('FCM Token refreshed: $newToken');
+        debugPrint('FCM registration token refreshed successfully');
+
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          try {
+            await _databaseService.saveUserDeviceToken(currentUser.uid, newToken);
+            debugPrint('Refreshed FCM token synchronized to user profile');
+          } catch (e) {
+            debugPrint('Error syncing refreshed FCM token: $e');
+          }
+        }
       });
     } catch (e, stackTrace) {
       debugPrint('NotificationService initialization notice: $e');
@@ -45,7 +58,9 @@ class NotificationService {
     try {
       final token = await _fcm.getToken();
       _deviceToken = token;
-      debugPrint('FCM Registration Token: $token');
+      if (token != null && token.isNotEmpty) {
+        debugPrint('FCM registration token acquired successfully');
+      }
       return token;
     } catch (e) {
       debugPrint('Error retrieving FCM registration token: $e');

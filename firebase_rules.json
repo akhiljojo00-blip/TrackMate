@@ -7,6 +7,12 @@
         ".write": "auth != null && auth.uid === $uid"
       }
     },
+    "user_tokens": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
     "connection_requests": {
       "$receiverUid": {
         ".read": "auth != null && auth.uid === $receiverUid",

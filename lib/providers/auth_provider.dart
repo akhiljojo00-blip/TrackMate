@@ -3,11 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final DatabaseService _databaseService = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
 
   User? _user;
   UserModel? _userModel;
@@ -26,6 +28,7 @@ class AuthProvider extends ChangeNotifier {
       _user = user;
       if (user != null) {
         await _loadUserProfile(user.uid);
+        await _syncDeviceToken(user.uid);
       } else {
         _userModel = null;
       }
@@ -49,6 +52,18 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error loading user profile: $e');
+    }
+  }
+
+  Future<void> _syncDeviceToken(String uid) async {
+    try {
+      final token = await _notificationService.getDeviceToken();
+      if (token != null && token.isNotEmpty) {
+        await _databaseService.saveUserDeviceToken(uid, token);
+        debugPrint('FCM Device token registered for user session');
+      }
+    } catch (e) {
+      debugPrint('Notice: unable to sync device token: $e');
     }
   }
 
@@ -103,6 +118,7 @@ class AuthProvider extends ChangeNotifier {
         );
         await _databaseService.createUserProfile(newUser);
         _userModel = newUser;
+        await _syncDeviceToken(uid);
       }
 
       _setLoading(false);
@@ -145,6 +161,7 @@ class AuthProvider extends ChangeNotifier {
       final uid = credential.user?.uid;
       if (uid != null) {
         await _loadUserProfile(uid);
+        await _syncDeviceToken(uid);
       }
 
       _setLoading(false);
@@ -163,6 +180,14 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     _setLoading(true);
     try {
+      if (_user != null) {
+        try {
+          await _databaseService.clearUserDeviceToken(_user!.uid);
+          debugPrint('FCM Device token cleared on sign out');
+        } catch (e) {
+          debugPrint('Notice: unable to clear device token on sign out: $e');
+        }
+      }
       await _authService.signOut();
       _user = null;
       _userModel = null;

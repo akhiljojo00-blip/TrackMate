@@ -13,6 +13,7 @@ class DatabaseService {
   FirebaseDatabase get _db => _customDb ?? FirebaseDatabase.instance;
 
   DatabaseReference get _usersRef => _db.ref(AppConstants.usersPath);
+  DatabaseReference get _userTokensRef => _db.ref(AppConstants.userTokensPath);
   DatabaseReference get _locationsRef => _db.ref(AppConstants.locationsPath);
   DatabaseReference get _locationPermissionsRef => _db.ref(AppConstants.locationPermissionsPath);
   DatabaseReference get _connectionsRef => _db.ref(AppConstants.connectionsPath);
@@ -42,6 +43,27 @@ class DatabaseService {
 
   Future<void> updateLocationSharingConsent(String uid, bool isSharing) async {
     await _usersRef.child(uid).update({'isLocationSharing': isSharing});
+  }
+
+  // Device Token Management (FCM-2)
+  Future<void> saveUserDeviceToken(String uid, String token) async {
+    await _userTokensRef.child(uid).child('primary').set({
+      'token': token,
+      'updatedAt': ServerValue.timestamp,
+      'platform': 'android',
+    });
+  }
+
+  Future<void> clearUserDeviceToken(String uid) async {
+    await _userTokensRef.child(uid).child('primary').remove();
+  }
+
+  Future<String?> getUserDeviceToken(String uid) async {
+    final snapshot = await _userTokensRef.child(uid).child('primary').child('token').get();
+    if (snapshot.exists && snapshot.value != null) {
+      return snapshot.value.toString();
+    }
+    return null;
   }
 
   // User Search (by username prefix, strictly excluding GPS and filtering out current user)
@@ -297,6 +319,7 @@ class DatabaseService {
 
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
+  DatabaseReference get userTokensRef => _userTokensRef;
   DatabaseReference get locationsRef => _locationsRef;
   DatabaseReference get locationPermissionsRef => _locationPermissionsRef;
   DatabaseReference get connectionsRef => _connectionsRef;

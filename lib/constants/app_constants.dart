@@ -4,6 +4,7 @@ class AppConstants {
   
   // Realtime Database Paths
   static const String usersPath = 'users';
+  static const String userTokensPath = 'user_tokens';
   static const String locationsPath = 'locations';
   static const String locationPermissionsPath = 'location_permissions';
   static const String connectionsPath = 'connections';
