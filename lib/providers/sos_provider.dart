@@ -190,21 +190,25 @@ class SosProvider extends ChangeNotifier {
 
   /// Cancels and removes the active emergency beacon from the database.
   Future<bool> cancelSos(String currentUid) async {
+    _isTriggered = false;
+    _activeAlert = null;
+    _holdProgress = 0.0;
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
       await _databaseService.cancelSosAlert(currentUid);
-      _isTriggered = false;
-      _activeAlert = null;
-      _holdProgress = 0.0;
-      _errorMessage = null;
+      debugPrint('SOS Cancelled successfully for $currentUid');
       return true;
     } catch (e) {
       _errorMessage = 'Failed to cancel SOS alert: $e';
       debugPrint('Error cancelling SOS: $e');
       return false;
     } finally {
+      _isTriggered = false;
+      _activeAlert = null;
+      _holdProgress = 0.0;
       _isLoading = false;
       notifyListeners();
     }

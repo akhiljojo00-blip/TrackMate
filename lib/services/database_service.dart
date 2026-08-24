@@ -1,4 +1,5 @@
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import '../constants/app_constants.dart';
 import '../models/user_model.dart';
 import '../models/location_model.dart';
@@ -319,13 +320,27 @@ class DatabaseService {
     });
   }
 
-  // Emergency SOS Operations (SOS-2 / SOS-3)
+  // Emergency SOS Operations (SOS-2 / SOS-3 / SOS-4)
   Future<void> sendSosAlert(SosAlertModel alert) async {
-    await _emergencyAlertsRef.child(alert.senderUid).set(alert.toMap());
+    try {
+      await _emergencyAlertsRef.child(alert.senderUid).set(alert.toMap());
+      debugPrint('SOS alert broadcasted to Realtime Database: emergency_alerts/${alert.senderUid}');
+    } catch (e) {
+      debugPrint('Error writing SOS alert to database: $e');
+      rethrow;
+    }
   }
 
   Future<void> cancelSosAlert(String uid) async {
-    await _emergencyAlertsRef.child(uid).remove();
+    try {
+      await _emergencyAlertsRef.child(uid).update({'isActive': false});
+      await _emergencyAlertsRef.child(uid).remove();
+      debugPrint('SOS alert successfully removed from emergency_alerts/$uid');
+    } catch (e) {
+      debugPrint('Error canceling SOS alert from database: $e');
+      // Fallback direct remove
+      await _emergencyAlertsRef.child(uid).remove();
+    }
   }
 
   Stream<SosAlertModel?> getEmergencyAlertStream(String uid) {

@@ -494,6 +494,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ).then((_) {
           _isEmergencyDialogOpen = false;
+          _activeDialogAlertUid = null;
         });
       });
     } else if (_isEmergencyDialogOpen && _activeDialogAlertUid != null && !sosProvider.activeFriendAlerts.containsKey(_activeDialogAlertUid)) {
@@ -502,7 +503,7 @@ class _MapScreenState extends State<MapScreen> {
       _isEmergencyDialogOpen = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
+          Navigator.of(context, rootNavigator: true).maybePop();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('The emergency alert has been resolved/cancelled by your connection.'),

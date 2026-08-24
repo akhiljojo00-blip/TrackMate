@@ -5,6 +5,7 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../../providers/chat_provider.dart';
+import '../../providers/sos_provider.dart';
 import '../chat/chat_screen.dart';
 
 class ConnectionsScreen extends StatefulWidget {
@@ -67,6 +68,10 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
       connectionProvider.initializeForUser(user.uid);
       if (connectionProvider.connections.isNotEmpty) {
         context.read<ChatProvider>().listenToFriendChats(
+          currentUid: user.uid,
+          connections: connectionProvider.connections,
+        );
+        context.read<SosProvider>().listenToFriendEmergencyAlerts(
           currentUid: user.uid,
           connections: connectionProvider.connections,
         );
