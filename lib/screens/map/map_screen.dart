@@ -18,6 +18,7 @@ import '../chat/chat_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../connections/connections_screen.dart';
 import '../profile/profile_screen.dart';
+import '../geofence/geofence_list_screen.dart';
 import '../auth/login_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -706,6 +707,19 @@ class _MapScreenState extends State<MapScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const ChatListScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shield_outlined),
+              title: const Text('Safe Zones'),
+              subtitle: const Text('Custom geofences and zone alerts'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const GeofenceListScreen(),
                   ),
                 );
               },
