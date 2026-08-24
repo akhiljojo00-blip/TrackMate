@@ -3,15 +3,20 @@ import 'package:flutter/foundation.dart';
 import '../models/connection_model.dart';
 import '../models/user_model.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 
 class ConnectionProvider extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
 
   List<ConnectionUser> _connections = [];
   List<ConnectionRequestModel> _incomingRequests = [];
   List<ConnectionRequestModel> _sentRequests = [];
   List<UserModel> _searchResults = [];
   final Set<String> _pendingSentTargetUids = {};
+
+  bool _isFirstRequestsLoad = true;
+  bool _isFirstConnectionsLoad = true;
 
   bool _isLoading = false;
   bool _isSearching = false;
@@ -40,10 +45,27 @@ class ConnectionProvider extends ChangeNotifier {
     }
 
     _currentUid = uid;
+    _isFirstRequestsLoad = true;
+    _isFirstConnectionsLoad = true;
     _cancelSubscriptions();
 
     _connectionsSub = _databaseService.getConnectionsStream(uid).listen(
       (connections) {
+        if (!_isFirstConnectionsLoad) {
+          final newConnections = connections.where(
+            (c) => !_connections.any((prev) => prev.uid == c.uid),
+          );
+          for (final newFriend in newConnections) {
+            final wasSent = _sentRequests.any((r) => r.receiverUid == newFriend.uid) ||
+                _pendingSentTargetUids.contains(newFriend.uid);
+            if (wasSent) {
+              _notificationService.showRequestAcceptedNotification(
+                friendName: newFriend.name,
+              );
+            }
+          }
+        }
+        _isFirstConnectionsLoad = false;
         _connections = connections;
         notifyListeners();
       },
@@ -54,6 +76,17 @@ class ConnectionProvider extends ChangeNotifier {
 
     _requestsSub = _databaseService.getIncomingRequestsStream(uid).listen(
       (requests) {
+        if (!_isFirstRequestsLoad) {
+          final newRequests = requests.where(
+            (r) => !_incomingRequests.any((prev) => prev.senderUid == r.senderUid),
+          );
+          for (final newReq in newRequests) {
+            _notificationService.showFriendRequestNotification(
+              senderName: newReq.senderName,
+            );
+          }
+        }
+        _isFirstRequestsLoad = false;
         _incomingRequests = requests;
         notifyListeners();
       },
@@ -84,6 +117,8 @@ class ConnectionProvider extends ChangeNotifier {
     _sentRequests = [];
     _searchResults = [];
     _pendingSentTargetUids.clear();
+    _isFirstRequestsLoad = true;
+    _isFirstConnectionsLoad = true;
     _isSearching = false;
     _searchError = null;
     notifyListeners();

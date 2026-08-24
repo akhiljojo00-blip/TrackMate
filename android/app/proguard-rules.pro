@@ -17,6 +17,9 @@
 -keep class com.baseflow.geolocator.** { *; }
 -keep class com.baseflow.permissionhandler.** { *; }
 
+# Flutter Local Notifications
+-keep class com.dexterous.flutterlocalnotifications.** { *; }
+
 # General ProGuard Keep
 -dontwarn javax.annotation.**
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod

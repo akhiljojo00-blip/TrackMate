@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/message_model.dart';
 import '../services/database_service.dart';
+import '../services/notification_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
+  final NotificationService _notificationService = NotificationService();
 
   List<MessageModel> _messages = [];
   bool _isSending = false;
@@ -50,6 +52,21 @@ class ChatProvider extends ChangeNotifier {
     _chatError = null;
     _isSending = false;
     notifyListeners();
+  }
+
+  void handleIncomingMessageNotification({
+    required MessageModel message,
+    required String chatId,
+    required String currentUid,
+  }) {
+    // Only notify if message is from a peer and user is not inside that active chat
+    if (message.senderId != currentUid && _activeChatId != chatId) {
+      _notificationService.showChatMessageNotification(
+        senderName: message.senderName,
+        messageText: message.text,
+        chatId: chatId,
+      );
+    }
   }
 
   Future<bool> sendTextMessage({

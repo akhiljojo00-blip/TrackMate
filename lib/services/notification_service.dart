@@ -2,12 +2,12 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'database_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('FCM background message received: ${message.messageId}');
-  // Reserved for background payload handling
 }
 
 class NotificationService {
@@ -16,17 +16,32 @@ class NotificationService {
   NotificationService._internal();
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
   final DatabaseService _databaseService = DatabaseService();
+  
   String? _deviceToken;
+  bool _isLocalNotificationsInitialized = false;
 
   String? get deviceToken => _deviceToken;
+
+  static const String _channelId = 'trackmate_channel';
+  static const String _channelName = 'TrackMate Notifications';
+  static const String _channelDescription = 'Alerts for friend requests, connections, and messages';
+
+  static const AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
+    _channelId,
+    _channelName,
+    description: _channelDescription,
+    importance: Importance.high,
+    playSound: true,
+  );
 
   Future<void> initialize() async {
     try {
       // Register top-level background handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-      // Request notification permissions
+      // Request FCM permissions
       final NotificationSettings settings = await _fcm.requestPermission(
         alert: true,
         announcement: false,
@@ -39,12 +54,15 @@ class NotificationService {
 
       debugPrint('FCM permission authorization status: ${settings.authorizationStatus}');
 
-      // Configure foreground presentation options (heads-up alerts, badges, sounds)
+      // Configure foreground presentation options
       await _fcm.setForegroundNotificationPresentationOptions(
         alert: true,
         badge: true,
         sound: true,
       );
+
+      // Initialize local notification plugin for heads-up display
+      await _initializeLocalNotifications();
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional) {
@@ -54,20 +72,26 @@ class NotificationService {
       // 1. Foreground message stream
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('FCM foreground message received: ${message.messageId}');
-        // Reserved for foreground handling
+        final notification = message.notification;
+        if (notification != null) {
+          _showLocalNotification(
+            id: message.hashCode,
+            title: notification.title ?? 'TrackMate',
+            body: notification.body ?? '',
+            payload: message.data['chatId'] ?? message.data['type'],
+          );
+        }
       });
 
       // 2. Notification opened when app in background
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
         debugPrint('FCM notification opened from background: ${message.messageId}');
-        // Reserved for notification tap navigation
       });
 
       // 3. Initial message when app opened from terminated state
       final RemoteMessage? initialMessage = await _fcm.getInitialMessage();
       if (initialMessage != null) {
         debugPrint('FCM app opened from terminated state via notification: ${initialMessage.messageId}');
-        // Reserved for initial notification routing
       }
 
       // 4. Token refresh listener
@@ -89,6 +113,112 @@ class NotificationService {
       debugPrint('NotificationService initialization notice: $e');
       debugPrint('Stack trace: $stackTrace');
     }
+  }
+
+  Future<void> _initializeLocalNotifications() async {
+    if (_isLocalNotificationsInitialized) return;
+
+    try {
+      const AndroidInitializationSettings androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: false,
+        requestBadgePermission: false,
+        requestSoundPermission: false,
+      );
+
+      const InitializationSettings initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+
+      await _localNotifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: (NotificationResponse response) {
+          debugPrint('Local notification clicked: payload=${response.payload}');
+        },
+      );
+
+      final androidImplementation = _localNotifications
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      if (androidImplementation != null) {
+        await androidImplementation.createNotificationChannel(_androidChannel);
+      }
+
+      _isLocalNotificationsInitialized = true;
+    } catch (e) {
+      debugPrint('Error initializing local notifications: $e');
+    }
+  }
+
+  Future<void> _showLocalNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    try {
+      if (!_isLocalNotificationsInitialized) {
+        await _initializeLocalNotifications();
+      }
+
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: _channelDescription,
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+        icon: '@mipmap/ic_launcher',
+      );
+
+      const NotificationDetails platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: DarwinNotificationDetails(presentAlert: true, presentBadge: true, presentSound: true),
+      );
+
+      await _localNotifications.show(
+        id,
+        title,
+        body,
+        platformDetails,
+        payload: payload,
+      );
+    } catch (e) {
+      debugPrint('Error displaying local notification: $e');
+    }
+  }
+
+  // Application Notification Triggers (FCM-5, FCM-6, FCM-7)
+  Future<void> showFriendRequestNotification({required String senderName}) async {
+    await _showLocalNotification(
+      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title: 'New Connection Request',
+      body: '$senderName sent you a connection request.',
+      payload: 'connection_requests',
+    );
+  }
+
+  Future<void> showRequestAcceptedNotification({required String friendName}) async {
+    await _showLocalNotification(
+      id: DateTime.now().millisecondsSinceEpoch.remainder(100000),
+      title: 'Connection Accepted',
+      body: '$friendName accepted your connection request.',
+      payload: 'connections',
+    );
+  }
+
+  Future<void> showChatMessageNotification({
+    required String senderName,
+    required String messageText,
+    required String chatId,
+  }) async {
+    await _showLocalNotification(
+      id: chatId.hashCode,
+      title: senderName,
+      body: messageText,
+      payload: chatId,
+    );
   }
 
   Future<String?> getDeviceToken() async {
