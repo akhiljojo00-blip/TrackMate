@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/avatar_presets.dart';
+import '../../models/group_member_model.dart';
 import '../../models/group_model.dart';
 import '../../models/message_model.dart';
 import '../../providers/auth_provider.dart';
@@ -28,6 +29,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   bool _isSending = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentUid = context.read<AuthProvider>().user?.uid;
+      if (currentUid != null) {
+        _databaseService.markGroupAsRead(
+          groupId: widget.group.id,
+          uid: currentUid,
+        );
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
@@ -47,6 +62,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   Future<void> _handleSendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || _isSending) return;
+
+    if (text.length > 2000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message cannot exceed 2,000 characters.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     final authProvider = context.read<AuthProvider>();
     final currentUid = authProvider.user?.uid;
@@ -72,6 +97,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         message: message,
       );
 
+      await _databaseService.markGroupAsRead(
+        groupId: widget.group.id,
+        uid: currentUid,
+      );
+
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     } catch (e) {
       if (mounted) {
@@ -79,6 +109,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           SnackBar(
             content: Text('Failed to send message: $e'),
             backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
@@ -154,177 +185,244 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: StreamBuilder<List<MessageModel>>(
-              stream: _databaseService.listenToGroupMessages(widget.group.id),
-              builder: (context, snapshot) {
-                final messages = snapshot.data ?? [];
+      body: StreamBuilder<List<GroupMemberModel>>(
+        stream: _databaseService.listenToGroupMembers(widget.group.id),
+        builder: (context, memberSnapshot) {
+          final members = memberSnapshot.data ?? [];
+          final bool isLoaded = memberSnapshot.hasData;
+          final bool isMember = !isLoaded || members.any((m) => m.uid == currentUid);
 
-                if (messages.isNotEmpty) {
-                  WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
-                }
-
-                if (messages.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.groups_rounded,
-                          size: 64,
-                          color: AppColors.textSecondary.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Welcome to ${widget.group.name}!',
-                          style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Say something to start the conversation.',
-                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isMe = message.senderId == currentUid;
-
-                    final timeStr = DateFormat('hh:mm a').format(
-                      DateTime.fromMillisecondsSinceEpoch(message.timestamp),
-                    );
-
-                    return Align(
-                      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.75,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                        decoration: BoxDecoration(
-                          color: isMe ? AppColors.primary : AppColors.surface,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(16),
-                            topRight: const Radius.circular(16),
-                            bottomLeft: Radius.circular(isMe ? 16 : 4),
-                            bottomRight: Radius.circular(isMe ? 4 : 16),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 3,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                          children: [
-                            if (!isMe) ...[
-                              Text(
-                                message.senderName,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                            ],
-                            Text(
-                              message.text,
-                              style: TextStyle(
-                                color: isMe ? Colors.white : AppColors.textPrimary,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              timeStr,
-                              style: TextStyle(
-                                color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondary,
-                                fontSize: 9,
-                              ),
-                            ),
-                          ],
+          return Column(
+            children: [
+              // Notice banner if removed from group
+              if (isLoaded && !isMember)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  color: AppColors.error.withValues(alpha: 0.1),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: AppColors.error, size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'You are no longer a member of this group.',
+                          style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+
+              // Messages List
+              Expanded(
+                child: StreamBuilder<List<MessageModel>>(
+                  stream: _databaseService.listenToGroupMessages(widget.group.id),
+                  builder: (context, snapshot) {
+                    final messages = snapshot.data ?? [];
+
+                    if (messages.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _scrollToBottom();
+                        if (currentUid.isNotEmpty) {
+                          _databaseService.markGroupAsRead(
+                            groupId: widget.group.id,
+                            uid: currentUid,
+                          );
+                        }
+                      });
+                    }
+
+                    if (messages.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.groups_rounded,
+                              size: 64,
+                              color: AppColors.textSecondary.withValues(alpha: 0.4),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Welcome to ${widget.group.name}!',
+                              style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Say something to start the conversation.',
+                              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      itemCount: messages.length,
+                      itemBuilder: (context, index) {
+                        final message = messages[index];
+                        final isMe = message.senderId == currentUid;
+
+                        final timeStr = DateFormat('hh:mm a').format(
+                          DateTime.fromMillisecondsSinceEpoch(message.timestamp),
+                        );
+
+                        return Align(
+                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                            decoration: BoxDecoration(
+                              color: isMe ? AppColors.primary : AppColors.surface,
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(16),
+                                topRight: const Radius.circular(16),
+                                bottomLeft: Radius.circular(isMe ? 16 : 4),
+                                bottomRight: Radius.circular(isMe ? 4 : 16),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 3,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                              children: [
+                                if (!isMe) ...[
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 8,
+                                        backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                                        child: Text(
+                                          message.senderName.isNotEmpty ? message.senderName[0].toUpperCase() : 'U',
+                                          style: const TextStyle(
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        message.senderName,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                ],
+                                Text(
+                                  message.text,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white : AppColors.textPrimary,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  timeStr,
+                                  style: TextStyle(
+                                    color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondary,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
-                );
-              },
-            ),
-          ),
-
-          // Composer Input Bar
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  offset: const Offset(0, -1),
-                  blurRadius: 4,
                 ),
-              ],
-            ),
-            child: SafeArea(
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      textCapitalization: TextCapitalization.sentences,
-                      maxLines: 4,
-                      minLines: 1,
-                      decoration: InputDecoration(
-                        hintText: 'Message group...',
-                        hintStyle: const TextStyle(color: AppColors.textSecondary),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide.none,
-                        ),
-                        filled: true,
-                        fillColor: AppColors.background,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      ),
-                      onSubmitted: (_) => _handleSendMessage(),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Material(
-                    color: AppColors.primary,
-                    shape: const CircleBorder(),
-                    child: IconButton(
-                      icon: _isSending
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
-                      onPressed: _isSending ? null : _handleSendMessage,
-                    ),
-                  ),
-                ],
               ),
-            ),
-          ),
-        ],
+
+              // Composer Input Bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      offset: const Offset(0, -1),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: isMember
+                      ? Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _messageController,
+                                textCapitalization: TextCapitalization.sentences,
+                                maxLines: 4,
+                                minLines: 1,
+                                maxLength: 2000,
+                                buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                                decoration: InputDecoration(
+                                  hintText: 'Message group...',
+                                  hintStyle: const TextStyle(color: AppColors.textSecondary),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                  filled: true,
+                                  fillColor: AppColors.background,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                ),
+                                onSubmitted: (_) => _handleSendMessage(),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Material(
+                              color: AppColors.primary,
+                              shape: const CircleBorder(),
+                              child: IconButton(
+                                icon: _isSending
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                                onPressed: _isSending ? null : _handleSendMessage,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            'You cannot send messages to this group.',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

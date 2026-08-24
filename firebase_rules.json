@@ -80,6 +80,14 @@
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "group_read_state": {
+      "$groupId": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
     }
   }
 }

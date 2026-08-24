@@ -17,4 +17,5 @@ class AppConstants {
   static const String groupMembersPath = 'group_members';
   static const String userGroupsPath = 'user_groups';
   static const String groupMessagesPath = 'group_messages';
+  static const String groupReadStatePath = 'group_read_state';
 }

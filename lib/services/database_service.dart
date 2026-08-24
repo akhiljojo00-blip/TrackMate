@@ -29,6 +29,7 @@ class DatabaseService {
   DatabaseReference get _groupMembersRef => _db.ref(AppConstants.groupMembersPath);
   DatabaseReference get _userGroupsRef => _db.ref(AppConstants.userGroupsPath);
   DatabaseReference get _groupMessagesRef => _db.ref(AppConstants.groupMessagesPath);
+  DatabaseReference get _groupReadStateRef => _db.ref(AppConstants.groupReadStatePath);
 
   // User Profile Methods
   Future<void> createUserProfile(UserModel user) async {
@@ -607,6 +608,59 @@ class DatabaseService {
     });
   }
 
+  Future<void> markGroupAsRead({
+    required String groupId,
+    required String uid,
+  }) async {
+    try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _groupReadStateRef.child(groupId).child(uid).set({
+        'lastReadTimestamp': now,
+      });
+    } catch (e) {
+      debugPrint('Error marking group as read: $e');
+    }
+  }
+
+  Stream<int?> listenToGroupLastRead({
+    required String groupId,
+    required String uid,
+  }) {
+    return _groupReadStateRef
+        .child(groupId)
+        .child(uid)
+        .child('lastReadTimestamp')
+        .onValue
+        .map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final val = event.snapshot.value;
+        if (val is num) {
+          return val.toInt();
+        }
+      }
+      return null;
+    });
+  }
+
+  Future<int?> getGroupLastRead({
+    required String groupId,
+    required String uid,
+  }) async {
+    try {
+      final snapshot = await _groupReadStateRef
+          .child(groupId)
+          .child(uid)
+          .child('lastReadTimestamp')
+          .get();
+      if (snapshot.exists && snapshot.value is num) {
+        return (snapshot.value as num).toInt();
+      }
+    } catch (e) {
+      debugPrint('Error fetching group last read timestamp: $e');
+    }
+    return null;
+  }
+
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
   DatabaseReference get userTokensRef => _userTokensRef;
@@ -621,4 +675,5 @@ class DatabaseService {
   DatabaseReference get groupMembersRef => _groupMembersRef;
   DatabaseReference get userGroupsRef => _userGroupsRef;
   DatabaseReference get groupMessagesRef => _groupMessagesRef;
+  DatabaseReference get groupReadStateRef => _groupReadStateRef;
 }

@@ -216,81 +216,10 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                 separatorBuilder: (_, _) => const Divider(height: 1, indent: 70),
                 itemBuilder: (context, index) {
                   final group = groups[index];
-                  final preset = AvatarPresets.getPreset(group.avatarPresetIndex);
-
-                  final timeStr = group.lastMessageTimestamp != null
-                      ? DateFormat('hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(group.lastMessageTimestamp!))
-                      : '';
-
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: preset.gradientColors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                      ),
-                      child: Center(
-                        child: Icon(preset.icon, size: 22, color: Colors.white),
-                      ),
-                    ),
-                    title: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            group.name,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (timeStr.isNotEmpty)
-                          Text(
-                            timeStr,
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
-                          ),
-                      ],
-                    ),
-                    subtitle: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            group.lastMessageText != null
-                                ? '${group.lastMessageSenderName != null ? '${group.lastMessageSenderName}: ' : ''}${group.lastMessageText}'
-                                : '${group.memberCount} members',
-                            style: TextStyle(
-                              color: group.lastMessageText != null ? AppColors.textSecondary : AppColors.primary,
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '${group.memberCount}',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                          ),
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => GroupChatScreen(group: group),
-                        ),
-                      );
-                    },
+                  return _GroupTile(
+                    group: group,
+                    currentUid: currentUid,
+                    databaseService: _databaseService,
                   );
                 },
               );
@@ -311,6 +240,145 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
               },
             )
           : null,
+    );
+  }
+}
+
+class _GroupTile extends StatelessWidget {
+  final GroupModel group;
+  final String currentUid;
+  final DatabaseService databaseService;
+
+  const _GroupTile({
+    required this.group,
+    required this.currentUid,
+    required this.databaseService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final preset = AvatarPresets.getPreset(group.avatarPresetIndex);
+
+    final timeStr = group.lastMessageTimestamp != null
+        ? DateFormat('hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(group.lastMessageTimestamp!))
+        : '';
+
+    return StreamBuilder<int?>(
+      stream: databaseService.listenToGroupLastRead(
+        groupId: group.id,
+        uid: currentUid,
+      ),
+      builder: (context, readSnapshot) {
+        final lastReadTimestamp = readSnapshot.data;
+        final bool isUnread = group.lastMessageTimestamp != null &&
+            (lastReadTimestamp == null || group.lastMessageTimestamp! > lastReadTimestamp) &&
+            group.lastMessageSenderId != currentUid;
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: preset.gradientColors,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Center(
+                  child: Icon(preset.icon, size: 22, color: Colors.white),
+                ),
+              ),
+              if (isUnread)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.surface, width: 2),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  group.name,
+                  style: TextStyle(
+                    fontWeight: isUnread ? FontWeight.w900 : FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (timeStr.isNotEmpty)
+                Text(
+                  timeStr,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                    color: isUnread ? AppColors.primary : AppColors.textSecondary,
+                  ),
+                ),
+            ],
+          ),
+          subtitle: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  group.lastMessageText != null
+                      ? '${group.lastMessageSenderName != null ? '${group.lastMessageSenderName}: ' : ''}${group.lastMessageText}'
+                      : '${group.memberCount} members',
+                  style: TextStyle(
+                    color: isUnread
+                        ? AppColors.textPrimary
+                        : (group.lastMessageText != null ? AppColors.textSecondary : AppColors.primary),
+                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 13,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isUnread ? AppColors.primary.withValues(alpha: 0.12) : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${group.memberCount}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isUnread ? AppColors.primary : Colors.grey.shade700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => GroupChatScreen(group: group),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
