@@ -1,16 +1,24 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/connection_model.dart';
 import '../models/message_model.dart';
 import '../services/database_service.dart';
+import '../services/media_service.dart';
 import '../services/notification_service.dart';
 
 class ChatProvider extends ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final NotificationService _notificationService = NotificationService();
+  final MediaService _mediaService;
+
+  ChatProvider({MediaService? mediaService})
+      : _mediaService = mediaService ?? MediaService();
 
   List<MessageModel> _messages = [];
   bool _isSending = false;
+  bool _isUploadingImage = false;
+  double _uploadProgress = 0.0;
   String? _chatError;
   String? _activeChatId;
   StreamSubscription<List<MessageModel>>? _messagesSub;
@@ -22,6 +30,8 @@ class ChatProvider extends ChangeNotifier {
 
   List<MessageModel> get messages => _messages;
   bool get isSending => _isSending;
+  bool get isUploadingImage => _isUploadingImage;
+  double get uploadProgress => _uploadProgress;
   String? get chatError => _chatError;
   String? get activeChatId => _activeChatId;
 
@@ -35,6 +45,8 @@ class ChatProvider extends ChangeNotifier {
     _activeChatId = chatId;
     _messages = [];
     _chatError = null;
+    _isUploadingImage = false;
+    _uploadProgress = 0.0;
     _messagesSub?.cancel();
 
     _messagesSub = _databaseService.getMessagesStream(chatId).listen(
@@ -59,6 +71,8 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _chatError = null;
     _isSending = false;
+    _isUploadingImage = false;
+    _uploadProgress = 0.0;
     notifyListeners();
   }
 
@@ -88,9 +102,13 @@ class ChatProvider extends ChangeNotifier {
               for (final msg in newMessages) {
                 // Suppress if message was sent by self or if user is currently inside this chat room
                 if (msg.senderId != currentUid && _activeChatId != chatId) {
+                  final displayBody = msg.isImage
+                      ? (msg.text.isNotEmpty ? '📷 ${msg.text}' : '📷 Sent a photo')
+                      : msg.text;
+
                   _notificationService.showChatMessageNotification(
                     senderName: msg.senderName,
-                    messageText: msg.text,
+                    messageText: displayBody,
                     chatId: chatId,
                   );
                 }
@@ -135,6 +153,7 @@ class ChatProvider extends ChangeNotifier {
         senderId: currentUid,
         senderName: currentName,
         text: trimmedText,
+        type: 'text',
         timestamp: DateTime.now().millisecondsSinceEpoch,
       );
 
@@ -149,6 +168,67 @@ class ChatProvider extends ChangeNotifier {
       return false;
     } finally {
       _isSending = false;
+      notifyListeners();
+    }
+  }
+
+  /// Handles picking, compression, uploading, and dispatching an image message.
+  Future<bool> sendImageMessage({
+    required String currentUid,
+    required String currentName,
+    required ImageSource source,
+    String? caption,
+  }) async {
+    if (_activeChatId == null) return false;
+
+    // Pick & Compress image (safely returns null if user cancelled)
+    final compressedFile = await _mediaService.pickAndCompressImage(source: source);
+    if (compressedFile == null) {
+      return false;
+    }
+
+    _isUploadingImage = true;
+    _uploadProgress = 0.0;
+    _chatError = null;
+    notifyListeners();
+
+    try {
+      final downloadUrl = await _mediaService.uploadChatImage(
+        chatId: _activeChatId!,
+        file: compressedFile,
+        onProgress: (progress) {
+          _uploadProgress = progress;
+          notifyListeners();
+        },
+      );
+
+      if (downloadUrl == null) {
+        _chatError = 'Failed to upload image. Please check your network connection.';
+        return false;
+      }
+
+      final message = MessageModel(
+        id: '',
+        senderId: currentUid,
+        senderName: currentName,
+        text: caption?.trim() ?? '',
+        type: 'image',
+        imageUrl: downloadUrl,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      );
+
+      await _databaseService.sendMessage(
+        chatId: _activeChatId!,
+        message: message,
+      );
+      return true;
+    } catch (e) {
+      _chatError = 'Failed to send image: $e';
+      debugPrint('Error in sendImageMessage: $e');
+      return false;
+    } finally {
+      _isUploadingImage = false;
+      _uploadProgress = 0.0;
       notifyListeners();
     }
   }

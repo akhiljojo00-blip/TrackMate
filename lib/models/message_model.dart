@@ -4,6 +4,8 @@ class MessageModel {
   final String senderName;
   final String text;
   final int timestamp;
+  final String type;
+  final String? imageUrl;
 
   const MessageModel({
     required this.id,
@@ -11,7 +13,11 @@ class MessageModel {
     required this.senderName,
     required this.text,
     required this.timestamp,
+    this.type = 'text',
+    this.imageUrl,
   });
+
+  bool get isImage => type == 'image' && imageUrl != null && imageUrl!.isNotEmpty;
 
   Map<String, dynamic> toMap() {
     return {
@@ -20,6 +26,8 @@ class MessageModel {
       'senderName': senderName,
       'text': text.trim(),
       'timestamp': timestamp,
+      'type': type,
+      'imageUrl': imageUrl,
     };
   }
 
@@ -30,6 +38,8 @@ class MessageModel {
       senderName: map['senderName']?.toString() ?? '',
       text: map['text']?.toString() ?? '',
       timestamp: (map['timestamp'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
+      type: map['type']?.toString() ?? 'text',
+      imageUrl: map['imageUrl']?.toString(),
     );
   }
 
@@ -39,6 +49,8 @@ class MessageModel {
     String? senderName,
     String? text,
     int? timestamp,
+    String? type,
+    String? imageUrl,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -46,6 +58,8 @@ class MessageModel {
       senderName: senderName ?? this.senderName,
       text: text ?? this.text,
       timestamp: timestamp ?? this.timestamp,
+      type: type ?? this.type,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 }
