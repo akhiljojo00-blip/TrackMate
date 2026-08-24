@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import '../models/location_model.dart';
 import '../models/connection_model.dart';
 import '../models/message_model.dart';
+import '../models/sos_alert_model.dart';
 
 class DatabaseService {
   final FirebaseDatabase? _customDb;
@@ -20,6 +21,7 @@ class DatabaseService {
   DatabaseReference get _connectionRequestsRef => _db.ref(AppConstants.connectionRequestsPath);
   DatabaseReference get _sentRequestsRef => _db.ref(AppConstants.sentRequestsPath);
   DatabaseReference get _chatsRef => _db.ref(AppConstants.chatsPath);
+  DatabaseReference get _emergencyAlertsRef => _db.ref(AppConstants.emergencyAlertsPath);
 
   // User Profile Methods
   Future<void> createUserProfile(UserModel user) async {
@@ -317,6 +319,27 @@ class DatabaseService {
     });
   }
 
+  // Emergency SOS Operations (SOS-2 / SOS-3)
+  Future<void> sendSosAlert(SosAlertModel alert) async {
+    await _emergencyAlertsRef.child(alert.senderUid).set(alert.toMap());
+  }
+
+  Future<void> cancelSosAlert(String uid) async {
+    await _emergencyAlertsRef.child(uid).remove();
+  }
+
+  Stream<SosAlertModel?> getEmergencyAlertStream(String uid) {
+    return _emergencyAlertsRef.child(uid).onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final value = event.snapshot.value;
+        if (value is Map) {
+          return SosAlertModel.fromMap(value, uid);
+        }
+      }
+      return null;
+    });
+  }
+
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
   DatabaseReference get userTokensRef => _userTokensRef;
@@ -326,4 +349,5 @@ class DatabaseService {
   DatabaseReference get connectionRequestsRef => _connectionRequestsRef;
   DatabaseReference get sentRequestsRef => _sentRequestsRef;
   DatabaseReference get chatsRef => _chatsRef;
+  DatabaseReference get emergencyAlertsRef => _emergencyAlertsRef;
 }

@@ -63,6 +63,7 @@ void main() {
       final provider = SosProvider();
       expect(provider.holdProgress, 0.0);
       expect(provider.isTriggered, false);
+      expect(provider.isLoading, false);
       expect(provider.activeAlert, isNull);
     });
 
@@ -78,18 +79,18 @@ void main() {
       expect(provider.holdProgress, 0.0);
     });
 
-    test('SosProvider triggerSos and reset lifecycle', () {
+    test('SosProvider reset lifecycle', () {
       final provider = SosProvider();
-      provider.triggerSos();
-      expect(provider.isTriggered, true);
-      expect(provider.holdProgress, 1.0);
+      provider.updateHoldProgress(0.7);
+      expect(provider.holdProgress, 0.7);
 
       provider.cancelHold();
-      expect(provider.isTriggered, true); // cancelHold does not reset if triggered
+      expect(provider.holdProgress, 0.0);
 
       provider.reset();
       expect(provider.isTriggered, false);
       expect(provider.holdProgress, 0.0);
+      expect(provider.activeAlert, isNull);
     });
   });
 }

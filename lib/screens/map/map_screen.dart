@@ -372,11 +372,71 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
+  Future<void> _handleTriggerSos() async {
+    final authProvider = context.read<AuthProvider>();
+    final locationProvider = context.read<LocationProvider>();
+    final sosProvider = context.read<SosProvider>();
+    final currentUid = authProvider.user?.uid;
+    final currentName = authProvider.userModel?.name ?? 'User';
+    final currentLatLng = locationProvider.currentLatLng;
+
+    if (currentUid != null) {
+      await sosProvider.broadcastSos(
+        currentUid: currentUid,
+        currentName: currentName,
+        currentLat: currentLatLng?.latitude,
+        currentLng: currentLatLng?.longitude,
+      );
+    }
+  }
+
+  Future<void> _handleCancelSos() async {
+    final currentUid = context.read<AuthProvider>().user?.uid;
+    if (currentUid == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Emergency SOS?'),
+        content: const Text(
+          'Are you safe? This will immediately dismiss the active emergency beacon and notify your connections that the emergency has ended.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep Active'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text("I'm Safe / Cancel SOS"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      await context.read<SosProvider>().cancelSos(currentUid);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Emergency SOS beacon cancelled.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final connectionProvider = context.watch<ConnectionProvider>();
     final locationProvider = context.watch<LocationProvider>();
+    final sosProvider = context.watch<SosProvider>();
     final userModel = authProvider.userModel;
     final currentUid = authProvider.user?.uid;
     final pendingRequestsCount = connectionProvider.incomingRequests.length;
@@ -601,89 +661,136 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
-          // Top Status Pill
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
-            child: Center(
+          // Top Emergency Banner or Normal Status Pill
+          if (sosProvider.isTriggered)
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSharing
-                      ? AppColors.success.withValues(alpha: 0.9)
-                      : Colors.grey.shade800.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(24),
+                  color: AppColors.error,
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 6,
+                      color: Colors.red.withValues(alpha: 0.5),
+                      blurRadius: 10,
+                      spreadRadius: 2,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isSharing ? Icons.radar : Icons.location_off_outlined,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isSharing ? 'Live Sharing ACTIVE' : 'Sharing is OFF',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'EMERGENCY SOS ACTIVE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          Text(
+                            'Broadcasting live GPS${sosProvider.activeAlert?.batteryLevel != null ? ' & ${sosProvider.activeAlert!.batteryLevel}% battery' : ''} to connections.',
+                            style: const TextStyle(color: Colors.white70, fontSize: 11),
+                          ),
+                        ],
                       ),
                     ),
-                    if (activeFriendLocations.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: AppColors.error,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${activeFriendLocations.length} friend${activeFriendLocations.length > 1 ? 's' : ''} visible',
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      onPressed: _handleCancelSos,
+                      child: const Text(
+                        'CANCEL',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
+            )
+          else
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSharing
+                        ? AppColors.success.withValues(alpha: 0.9)
+                        : Colors.grey.shade800.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isSharing ? Icons.radar : Icons.location_off_outlined,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        isSharing ? 'Live Sharing ACTIVE' : 'Sharing is OFF',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      if (activeFriendLocations.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${activeFriendLocations.length} friend${activeFriendLocations.length > 1 ? 's' : ''} visible',
+                          style: const TextStyle(color: Colors.white70, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ),
 
           // Left Controls (Emergency SOS Button with 3-second hold guard)
           Positioned(
             left: 16,
             bottom: 85,
             child: SosButton(
-              onTriggered: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text(
-                      'Emergency SOS Beacon Activated!',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    backgroundColor: AppColors.error,
-                    action: SnackBarAction(
-                      label: 'DISMISS',
-                      textColor: Colors.white,
-                      onPressed: () {
-                        context.read<SosProvider>().reset();
-                      },
-                    ),
-                  ),
-                );
-              },
+              onTriggered: _handleTriggerSos,
             ),
           ),
 

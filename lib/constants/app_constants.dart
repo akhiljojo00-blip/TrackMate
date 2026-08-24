@@ -12,4 +12,5 @@ class AppConstants {
   static const String sentRequestsPath = 'sent_requests';
   static const String chatsPath = 'chats';
   static const String messagesPath = 'messages';
+  static const String emergencyAlertsPath = 'emergency_alerts';
 }
