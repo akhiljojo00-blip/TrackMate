@@ -11,6 +11,7 @@ import 'providers/chat_provider.dart';
 import 'providers/sos_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/map/map_screen.dart';
+import 'screens/splash/splash_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -54,7 +55,7 @@ class TrackmateApp extends StatelessWidget {
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const AuthWrapper(),
+        home: const SplashScreen(),
       ),
     );
   }
