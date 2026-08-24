@@ -10,6 +10,8 @@ import '../models/group_model.dart';
 import '../models/group_member_model.dart';
 import '../models/group_location_session_model.dart';
 import '../models/group_session_participant_model.dart';
+import '../models/geofence_model.dart';
+import '../models/geofence_state_model.dart';
 
 class DatabaseService {
   final FirebaseDatabase? _customDb;
@@ -35,6 +37,8 @@ class DatabaseService {
   DatabaseReference get _groupLocationSessionsRef => _db.ref(AppConstants.groupLocationSessionsPath);
   DatabaseReference get _groupSessionParticipantsRef => _db.ref(AppConstants.groupSessionParticipantsPath);
   DatabaseReference get _groupLiveLocationsRef => _db.ref(AppConstants.groupLiveLocationsPath);
+  DatabaseReference get _userGeofencesRef => _db.ref(AppConstants.userGeofencesPath);
+  DatabaseReference get _geofenceStateRef => _db.ref(AppConstants.geofenceStatePath);
 
   // User Profile Methods
   Future<void> createUserProfile(UserModel user) async {
@@ -907,6 +911,65 @@ class DatabaseService {
     await _db.ref().update(updates);
   }
 
+  // Geofence Operations (Phase 9.1)
+  Future<void> saveGeofence(String uid, GeofenceModel geofence) async {
+    await _userGeofencesRef
+        .child(uid)
+        .child(geofence.id)
+        .set(geofence.toMap());
+  }
+
+  Future<void> deleteGeofence(String uid, String geofenceId) async {
+    final updates = <String, dynamic>{
+      '${AppConstants.userGeofencesPath}/$uid/$geofenceId': null,
+      '${AppConstants.geofenceStatePath}/$uid/$geofenceId': null,
+    };
+    await _db.ref().update(updates);
+  }
+
+  Stream<List<GeofenceModel>> listenToUserGeofences(String uid) {
+    return _userGeofencesRef.child(uid).onValue.map((event) {
+      if (!event.snapshot.exists || event.snapshot.value == null) {
+        return <GeofenceModel>[];
+      }
+      final dynamic val = event.snapshot.value;
+      if (val is! Map) return <GeofenceModel>[];
+
+      final List<GeofenceModel> geofences = [];
+      val.forEach((key, data) {
+        if (data is Map) {
+          geofences.add(GeofenceModel.fromMap(data, key.toString()));
+        }
+      });
+
+      geofences.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return geofences;
+    });
+  }
+
+  Future<void> updateGeofenceState(String uid, GeofenceStateModel state) async {
+    await _geofenceStateRef
+        .child(uid)
+        .child(state.geofenceId)
+        .set(state.toMap());
+  }
+
+  Stream<GeofenceStateModel?> listenToGeofenceState(String uid, String geofenceId) {
+    return _geofenceStateRef
+        .child(uid)
+        .child(geofenceId)
+        .onValue
+        .map((event) {
+      if (event.snapshot.exists && event.snapshot.value is Map) {
+        return GeofenceStateModel.fromMap(
+          event.snapshot.value as Map,
+          geofenceId,
+        );
+      }
+      return null;
+    });
+  }
+
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
   DatabaseReference get userTokensRef => _userTokensRef;
@@ -925,4 +988,6 @@ class DatabaseService {
   DatabaseReference get groupLocationSessionsRef => _groupLocationSessionsRef;
   DatabaseReference get groupSessionParticipantsRef => _groupSessionParticipantsRef;
   DatabaseReference get groupLiveLocationsRef => _groupLiveLocationsRef;
+  DatabaseReference get userGeofencesRef => _userGeofencesRef;
+  DatabaseReference get geofenceStateRef => _geofenceStateRef;
 }

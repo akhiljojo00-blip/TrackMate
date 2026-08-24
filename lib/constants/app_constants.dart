@@ -21,4 +21,6 @@ class AppConstants {
   static const String groupLocationSessionsPath = 'group_location_sessions';
   static const String groupSessionParticipantsPath = 'group_session_participants';
   static const String groupLiveLocationsPath = 'group_live_locations';
+  static const String userGeofencesPath = 'user_geofences';
+  static const String geofenceStatePath = 'geofence_state';
 }
