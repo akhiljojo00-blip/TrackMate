@@ -13,6 +13,7 @@ import '../../providers/sos_provider.dart';
 import '../../models/sos_alert_model.dart';
 import '../../widgets/sos_button.dart';
 import '../../widgets/emergency_alert_dialog.dart';
+import '../../widgets/friends_map_sheet.dart';
 import '../chat/chat_screen.dart';
 import '../connections/connections_screen.dart';
 
@@ -862,7 +863,7 @@ class _MapScreenState extends State<MapScreen> {
           // Left Controls (Emergency SOS Button with 3-second hold guard)
           Positioned(
             left: 16,
-            bottom: 85,
+            bottom: 172,
             child: SosButton(
               onTriggered: _handleTriggerSos,
             ),
@@ -871,7 +872,7 @@ class _MapScreenState extends State<MapScreen> {
           // Right Controls (Recenter Button)
           Positioned(
             right: 16,
-            bottom: 90,
+            bottom: 172,
             child: FloatingActionButton.small(
               heroTag: 'recenter_fab',
               backgroundColor: AppColors.surface,
@@ -882,11 +883,55 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
+          // Live Friends Tracking Drawer / Carousel
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 84,
+            child: FriendsMapSheet(
+              connections: connectionProvider.connections,
+              activeFriendLocations: activeFriendLocations,
+              friendDistances: friendDistances,
+              onSelectFriend: (coords, name) {
+                _mapController.move(coords, 16.0);
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Focused map on $name'),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              onOpenChat: (friend) {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => ChatScreen(
+                      peerUid: friend.uid,
+                      peerName: friend.name,
+                      peerUsername: friend.username,
+                    ),
+                  ),
+                );
+              },
+              onLocationUnavailable: (name) {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('$name is not sharing live location'),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+            ),
+          ),
+
           // Bottom Sharing Toggle Action Bar
           Positioned(
-            left: 20,
-            right: 20,
-            bottom: 20,
+            left: 16,
+            right: 16,
+            bottom: 16,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
                 backgroundColor: isSharing ? AppColors.error : AppColors.primary,
