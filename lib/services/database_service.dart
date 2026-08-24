@@ -554,10 +554,53 @@ class DatabaseService {
     await _db.ref().update(updates);
   }
 
+  Future<void> transferGroupOwnership({
+    required String groupId,
+    required String currentOwnerUid,
+    required String newOwnerUid,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updates = <String, dynamic>{
+      '${AppConstants.groupsPath}/$groupId/ownerId': newOwnerUid,
+      '${AppConstants.groupsPath}/$groupId/updatedAt': now,
+      '${AppConstants.groupMembersPath}/$groupId/$currentOwnerUid/role': 'admin',
+      '${AppConstants.groupMembersPath}/$groupId/$newOwnerUid/role': 'owner',
+    };
+    await _db.ref().update(updates);
+  }
+
+  Future<void> deleteGroup({required String groupId}) async {
+    final membersSnapshot = await _groupMembersRef.child(groupId).get();
+    final updates = <String, dynamic>{
+      '${AppConstants.groupsPath}/$groupId': null,
+      '${AppConstants.groupMembersPath}/$groupId': null,
+      '${AppConstants.groupMessagesPath}/$groupId': null,
+      '${AppConstants.groupReadStatePath}/$groupId': null,
+    };
+
+    if (membersSnapshot.exists && membersSnapshot.value is Map) {
+      final membersMap = membersSnapshot.value as Map;
+      for (final mUid in membersMap.keys) {
+        updates['${AppConstants.userGroupsPath}/$mUid/$groupId'] = null;
+      }
+    }
+
+    await _db.ref().update(updates);
+  }
+
   Future<void> leaveGroup({
     required String groupId,
     required String uid,
   }) async {
+    final membersSnapshot = await _groupMembersRef.child(groupId).get();
+    if (membersSnapshot.exists && membersSnapshot.value is Map) {
+      final membersMap = membersSnapshot.value as Map;
+      if (membersMap.length <= 1) {
+        // Sole member leaving -> delete entire group cleanly
+        await deleteGroup(groupId: groupId);
+        return;
+      }
+    }
     await removeMemberFromGroup(groupId: groupId, targetUid: uid);
   }
 
@@ -583,6 +626,31 @@ class DatabaseService {
     };
 
     await _db.ref().update(updates);
+
+    // Group Notification Fan-Out (non-blocking)
+    try {
+      final groupSnap = await _groupsRef.child(groupId).get();
+      String groupName = 'Group Chat';
+      if (groupSnap.exists && groupSnap.value is Map) {
+        groupName = (groupSnap.value as Map)['name']?.toString() ?? 'Group Chat';
+      }
+
+      final membersSnap = await _groupMembersRef.child(groupId).get();
+      if (membersSnap.exists && membersSnap.value is Map) {
+        final membersMap = membersSnap.value as Map;
+        for (final recipientUid in membersMap.keys) {
+          final rUidStr = recipientUid.toString();
+          if (rUidStr != fullMessage.senderId) {
+            final token = await getUserDeviceToken(rUidStr);
+            if (token != null && token.isNotEmpty) {
+              debugPrint('FCM fan-out: group message notification to $rUidStr ($groupName: ${fullMessage.senderName}: $summaryText)');
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fanning out group message notifications: $e');
+    }
   }
 
   Stream<List<MessageModel>> listenToGroupMessages(String groupId) {

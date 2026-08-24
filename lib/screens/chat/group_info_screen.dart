@@ -178,6 +178,48 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
               ),
               const Divider(),
               if (isCurrentUserOwner && !targetMember.isOwner) ...[
+                ListTile(
+                  leading: const Icon(Icons.swap_horiz_rounded, color: Colors.orange),
+                  title: const Text('Transfer Ownership'),
+                  subtitle: const Text('Make this member the new group owner'),
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogCtx) => AlertDialog(
+                        title: const Text('Transfer Group Ownership'),
+                        content: Text('Are you sure you want to transfer ownership of "${_currentGroup.name}" to ${targetMember.name ?? 'this member'}? You will become an admin.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(dialogCtx).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+                            onPressed: () => Navigator.of(dialogCtx).pop(true),
+                            child: const Text('Transfer'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirm == true && context.mounted) {
+                      await _databaseService.transferGroupOwnership(
+                        groupId: _currentGroup.id,
+                        currentOwnerUid: currentUid,
+                        newOwnerUid: targetMember.uid,
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Group ownership transferred successfully.'),
+                            backgroundColor: AppColors.success,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
                 if (targetMember.role == 'member')
                   ListTile(
                     leading: const Icon(Icons.admin_panel_settings_outlined, color: AppColors.primary),
@@ -223,12 +265,38 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     );
   }
 
-  Future<void> _handleLeaveGroup(BuildContext context, String currentUid) async {
+  Future<void> _handleLeaveGroup(BuildContext context, String currentUid, List<GroupMemberModel> members, bool isOwner) async {
+    if (isOwner && members.length > 1) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Transfer Ownership Required'),
+          content: const Text(
+            'You are the owner of this group. Please transfer group ownership to another member before leaving.',
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final bool isSoleMember = members.length <= 1;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Leave Group'),
-        content: Text('Are you sure you want to leave "${_currentGroup.name}"?'),
+        title: Text(isSoleMember ? 'Delete & Leave Group' : 'Leave Group'),
+        content: Text(
+          isSoleMember
+              ? 'You are the only member in "${_currentGroup.name}". Leaving will permanently delete this group. Continue?'
+              : 'Are you sure you want to leave "${_currentGroup.name}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -240,7 +308,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
               foregroundColor: Colors.white,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Leave'),
+            child: Text(isSoleMember ? 'Delete Group' : 'Leave'),
           ),
         ],
       ),
@@ -479,23 +547,23 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                           },
                         ),
                       ),
+                      const SizedBox(height: 28),
+
+                      // Leave Group Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                          side: const BorderSide(color: AppColors.error, width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+                        label: const Text('Leave Group', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        onPressed: () => _handleLeaveGroup(context, currentUid, members, isOwner),
+                      ),
                     ],
                   );
                 },
-              ),
-              const SizedBox(height: 28),
-
-              // Leave Group Button
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error, width: 1.2),
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-                label: const Text('Leave Group', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                onPressed: () => _handleLeaveGroup(context, currentUid),
               ),
             ],
           ),

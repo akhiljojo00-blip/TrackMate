@@ -221,6 +221,20 @@ class NotificationService {
     );
   }
 
+  Future<void> showGroupChatMessageNotification({
+    required String groupName,
+    required String senderName,
+    required String messageText,
+    required String groupId,
+  }) async {
+    await _showLocalNotification(
+      id: groupId.hashCode,
+      title: groupName,
+      body: '$senderName: $messageText',
+      payload: 'group_chat:$groupId',
+    );
+  }
+
   Future<void> showEmergencySosNotification({required String senderName}) async {
     await _showLocalNotification(
       id: senderName.hashCode,
