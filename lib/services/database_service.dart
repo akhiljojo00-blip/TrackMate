@@ -8,6 +8,8 @@ import '../models/message_model.dart';
 import '../models/sos_alert_model.dart';
 import '../models/group_model.dart';
 import '../models/group_member_model.dart';
+import '../models/group_location_session_model.dart';
+import '../models/group_session_participant_model.dart';
 
 class DatabaseService {
   final FirebaseDatabase? _customDb;
@@ -30,6 +32,9 @@ class DatabaseService {
   DatabaseReference get _userGroupsRef => _db.ref(AppConstants.userGroupsPath);
   DatabaseReference get _groupMessagesRef => _db.ref(AppConstants.groupMessagesPath);
   DatabaseReference get _groupReadStateRef => _db.ref(AppConstants.groupReadStatePath);
+  DatabaseReference get _groupLocationSessionsRef => _db.ref(AppConstants.groupLocationSessionsPath);
+  DatabaseReference get _groupSessionParticipantsRef => _db.ref(AppConstants.groupSessionParticipantsPath);
+  DatabaseReference get _groupLiveLocationsRef => _db.ref(AppConstants.groupLiveLocationsPath);
 
   // User Profile Methods
   Future<void> createUserProfile(UserModel user) async {
@@ -729,6 +734,178 @@ class DatabaseService {
     return null;
   }
 
+  // Group Location Session Operations (Phase 8.1)
+  Future<String> startGroupLocationSession({
+    required String groupId,
+    required String creatorUid,
+    required String creatorName,
+    required int avatarPresetIndex,
+    String? title,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final sessionId = _groupLocationSessionsRef.child(groupId).push().key!;
+    final sessionTitle = (title != null && title.trim().isNotEmpty)
+        ? title.trim()
+        : 'Live Group Location';
+
+    final session = GroupLocationSessionModel(
+      sessionId: sessionId,
+      groupId: groupId,
+      createdBy: creatorUid,
+      createdAt: now,
+      title: sessionTitle,
+      isActive: true,
+    );
+
+    final participant = GroupSessionParticipantModel(
+      uid: creatorUid,
+      displayName: creatorName,
+      avatarPresetIndex: avatarPresetIndex,
+      isSharing: true,
+      joinedAt: now,
+    );
+
+    final msgId = _groupMessagesRef.child(groupId).push().key!;
+    final systemMessage = MessageModel(
+      id: msgId,
+      senderId: creatorUid,
+      senderName: creatorName,
+      text: '📍 Started a live group location session: "$sessionTitle"',
+      type: 'text',
+      timestamp: now,
+    );
+
+    final updates = <String, dynamic>{
+      '${AppConstants.groupLocationSessionsPath}/$groupId': session.toMap(),
+      '${AppConstants.groupSessionParticipantsPath}/$groupId/$creatorUid': participant.toMap(),
+      '${AppConstants.groupMessagesPath}/$groupId/$msgId': systemMessage.toMap(),
+      '${AppConstants.groupsPath}/$groupId/lastMessageText': '📍 Live location session active',
+      '${AppConstants.groupsPath}/$groupId/lastMessageTimestamp': now,
+      '${AppConstants.groupsPath}/$groupId/lastMessageSenderId': creatorUid,
+      '${AppConstants.groupsPath}/$groupId/lastMessageSenderName': creatorName,
+      '${AppConstants.groupsPath}/$groupId/updatedAt': now,
+    };
+
+    await _db.ref().update(updates);
+    return sessionId;
+  }
+
+  Stream<GroupLocationSessionModel?> listenToActiveGroupSession(String groupId) {
+    return _groupLocationSessionsRef.child(groupId).onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value is Map) {
+        final session = GroupLocationSessionModel.fromMap(
+          event.snapshot.value as Map,
+          groupId,
+        );
+        if (session.isActive) {
+          return session;
+        }
+      }
+      return null;
+    });
+  }
+
+  Stream<List<GroupSessionParticipantModel>> listenToGroupSessionParticipants(String groupId) {
+    return _groupSessionParticipantsRef.child(groupId).onValue.map((event) {
+      if (!event.snapshot.exists || event.snapshot.value == null) {
+        return <GroupSessionParticipantModel>[];
+      }
+
+      final dynamic val = event.snapshot.value;
+      if (val is! Map) return <GroupSessionParticipantModel>[];
+
+      final List<GroupSessionParticipantModel> participants = [];
+      val.forEach((key, data) {
+        if (data is Map) {
+          final participant = GroupSessionParticipantModel.fromMap(data, key.toString());
+          if (participant.isSharing) {
+            participants.add(participant);
+          }
+        }
+      });
+
+      return participants;
+    });
+  }
+
+  Future<void> joinGroupLocationSession({
+    required String groupId,
+    required String uid,
+    required String displayName,
+    required int avatarPresetIndex,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final participant = GroupSessionParticipantModel(
+      uid: uid,
+      displayName: displayName,
+      avatarPresetIndex: avatarPresetIndex,
+      isSharing: true,
+      joinedAt: now,
+    );
+
+    await _groupSessionParticipantsRef
+        .child(groupId)
+        .child(uid)
+        .set(participant.toMap());
+  }
+
+  Future<void> leaveGroupLocationSession({
+    required String groupId,
+    required String uid,
+  }) async {
+    final updates = <String, dynamic>{
+      '${AppConstants.groupSessionParticipantsPath}/$groupId/$uid': null,
+      '${AppConstants.groupLiveLocationsPath}/$groupId/$uid': null,
+    };
+    await _db.ref().update(updates);
+  }
+
+  Future<void> updateGroupLiveLocation({
+    required String groupId,
+    required String uid,
+    required double latitude,
+    required double longitude,
+    double heading = 0.0,
+    double speed = 0.0,
+    double accuracy = 0.0,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    await _groupLiveLocationsRef.child(groupId).child(uid).set({
+      'latitude': latitude,
+      'longitude': longitude,
+      'heading': heading,
+      'speed': speed,
+      'accuracy': accuracy,
+      'updatedAt': now,
+    });
+  }
+
+  Stream<Map<String, LocationModel>> listenToGroupLiveLocations(String groupId) {
+    return _groupLiveLocationsRef.child(groupId).onValue.map((event) {
+      final Map<String, LocationModel> locations = {};
+      if (event.snapshot.exists && event.snapshot.value is Map) {
+        final data = event.snapshot.value as Map;
+        data.forEach((key, val) {
+          if (val is Map) {
+            locations[key.toString()] = LocationModel.fromMap(val, key.toString());
+          }
+        });
+      }
+      return locations;
+    });
+  }
+
+  Future<void> endGroupLocationSession({required String groupId}) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updates = <String, dynamic>{
+      '${AppConstants.groupLocationSessionsPath}/$groupId/isActive': false,
+      '${AppConstants.groupLiveLocationsPath}/$groupId': null,
+      '${AppConstants.groupSessionParticipantsPath}/$groupId': null,
+      '${AppConstants.groupsPath}/$groupId/updatedAt': now,
+    };
+    await _db.ref().update(updates);
+  }
+
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
   DatabaseReference get userTokensRef => _userTokensRef;
@@ -744,4 +921,7 @@ class DatabaseService {
   DatabaseReference get userGroupsRef => _userGroupsRef;
   DatabaseReference get groupMessagesRef => _groupMessagesRef;
   DatabaseReference get groupReadStateRef => _groupReadStateRef;
+  DatabaseReference get groupLocationSessionsRef => _groupLocationSessionsRef;
+  DatabaseReference get groupSessionParticipantsRef => _groupSessionParticipantsRef;
+  DatabaseReference get groupLiveLocationsRef => _groupLiveLocationsRef;
 }
