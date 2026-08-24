@@ -6,10 +6,12 @@ import '../models/connection_model.dart';
 import '../models/location_model.dart';
 import '../services/location_service.dart';
 import '../services/database_service.dart';
+import '../services/geofence_service.dart';
 
 class LocationProvider extends ChangeNotifier {
   final LocationService _locationService = LocationService();
   final DatabaseService _databaseService = DatabaseService();
+  final GeofenceService _geofenceService = GeofenceService();
 
   Position? _currentPosition;
   LocationModel? _currentLocationModel;
@@ -104,6 +106,7 @@ class LocationProvider extends ChangeNotifier {
     }
 
     try {
+      _geofenceService.initializeForUser(uid);
       final position = await _locationService.getCurrentPosition();
       if (position != null) {
         _currentPosition = position;
@@ -122,6 +125,14 @@ class LocationProvider extends ChangeNotifier {
         await _databaseService.updateUserLocation(uid, _currentLocationModel!);
         _lastSyncTime = DateTime.now();
         _recalculateAllDistances();
+
+        unawaited(
+          _geofenceService.evaluateCurrentPosition(
+            uid: uid,
+            latitude: position.latitude,
+            longitude: position.longitude,
+          ),
+        );
       }
 
       _isTracking = true;
@@ -142,6 +153,14 @@ class LocationProvider extends ChangeNotifier {
           );
           _recalculateAllDistances();
           notifyListeners();
+
+          unawaited(
+            _geofenceService.evaluateCurrentPosition(
+              uid: uid,
+              latitude: position.latitude,
+              longitude: position.longitude,
+            ),
+          );
 
           // Throttled sync to Realtime Database: at least 3 seconds or 5m
           final now = DateTime.now();
