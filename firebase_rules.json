@@ -58,6 +58,28 @@
       "$uid": {
         ".write": "auth != null && auth.uid === $uid"
       }
+    },
+    "groups": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "group_members": {
+      "$groupId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "user_groups": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null"
+      }
+    },
+    "group_messages": {
+      "$groupId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
     }
   }
 }

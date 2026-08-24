@@ -13,4 +13,8 @@ class AppConstants {
   static const String chatsPath = 'chats';
   static const String messagesPath = 'messages';
   static const String emergencyAlertsPath = 'emergency_alerts';
+  static const String groupsPath = 'groups';
+  static const String groupMembersPath = 'group_members';
+  static const String userGroupsPath = 'user_groups';
+  static const String groupMessagesPath = 'group_messages';
 }

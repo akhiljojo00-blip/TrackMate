@@ -6,6 +6,8 @@ import '../models/location_model.dart';
 import '../models/connection_model.dart';
 import '../models/message_model.dart';
 import '../models/sos_alert_model.dart';
+import '../models/group_model.dart';
+import '../models/group_member_model.dart';
 
 class DatabaseService {
   final FirebaseDatabase? _customDb;
@@ -23,6 +25,10 @@ class DatabaseService {
   DatabaseReference get _sentRequestsRef => _db.ref(AppConstants.sentRequestsPath);
   DatabaseReference get _chatsRef => _db.ref(AppConstants.chatsPath);
   DatabaseReference get _emergencyAlertsRef => _db.ref(AppConstants.emergencyAlertsPath);
+  DatabaseReference get _groupsRef => _db.ref(AppConstants.groupsPath);
+  DatabaseReference get _groupMembersRef => _db.ref(AppConstants.groupMembersPath);
+  DatabaseReference get _userGroupsRef => _db.ref(AppConstants.userGroupsPath);
+  DatabaseReference get _groupMessagesRef => _db.ref(AppConstants.groupMessagesPath);
 
   // User Profile Methods
   Future<void> createUserProfile(UserModel user) async {
@@ -388,6 +394,219 @@ class DatabaseService {
     });
   }
 
+  // Group Chat Operations (Phase 7.1)
+  Future<String> createGroup({
+    required String name,
+    String? description,
+    int avatarPresetIndex = 0,
+    required String creatorUid,
+    required List<String> memberUids,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final groupId = _groupsRef.push().key!;
+    final allMembers = {creatorUid, ...memberUids}.toList();
+
+    final group = GroupModel(
+      id: groupId,
+      name: name.trim(),
+      description: description?.trim(),
+      avatarPresetIndex: avatarPresetIndex,
+      ownerId: creatorUid,
+      createdAt: now,
+      updatedAt: now,
+      memberCount: allMembers.length,
+    );
+
+    final updates = <String, dynamic>{};
+    updates['${AppConstants.groupsPath}/$groupId'] = group.toMap();
+    updates['${AppConstants.groupMembersPath}/$groupId/$creatorUid'] = GroupMemberModel(
+      uid: creatorUid,
+      role: 'owner',
+      joinedAt: now,
+    ).toMap();
+
+    for (final memberUid in memberUids) {
+      if (memberUid != creatorUid) {
+        updates['${AppConstants.groupMembersPath}/$groupId/$memberUid'] = GroupMemberModel(
+          uid: memberUid,
+          role: 'member',
+          joinedAt: now,
+        ).toMap();
+      }
+    }
+
+    for (final u in allMembers) {
+      updates['${AppConstants.userGroupsPath}/$u/$groupId'] = true;
+    }
+
+    await _db.ref().update(updates);
+    return groupId;
+  }
+
+  Future<GroupModel?> getGroup(String groupId) async {
+    final snapshot = await _groupsRef.child(groupId).get();
+    if (snapshot.exists && snapshot.value is Map) {
+      return GroupModel.fromMap(snapshot.value as Map, groupId);
+    }
+    return null;
+  }
+
+  Stream<GroupModel?> getGroupStream(String groupId) {
+    return _groupsRef.child(groupId).onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value is Map) {
+        return GroupModel.fromMap(event.snapshot.value as Map, groupId);
+      }
+      return null;
+    });
+  }
+
+  Stream<List<GroupModel>> listenToUserGroups(String uid) {
+    return _userGroupsRef.child(uid).onValue.asyncMap((event) async {
+      if (!event.snapshot.exists || event.snapshot.value == null) {
+        return <GroupModel>[];
+      }
+
+      final dynamic val = event.snapshot.value;
+      if (val is! Map) return <GroupModel>[];
+
+      final groupIds = val.keys.map((k) => k.toString()).toList();
+      final List<GroupModel> groups = [];
+
+      for (final gId in groupIds) {
+        final groupSnapshot = await _groupsRef.child(gId).get();
+        if (groupSnapshot.exists && groupSnapshot.value is Map) {
+          groups.add(GroupModel.fromMap(groupSnapshot.value as Map, gId));
+        }
+      }
+
+      // Sort by updatedAt descending (most recent group messages/activity first)
+      groups.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      return groups;
+    });
+  }
+
+  Stream<List<GroupMemberModel>> listenToGroupMembers(String groupId) {
+    return _groupMembersRef.child(groupId).onValue.map((event) {
+      if (!event.snapshot.exists || event.snapshot.value == null) {
+        return <GroupMemberModel>[];
+      }
+
+      final dynamic val = event.snapshot.value;
+      if (val is! Map) return <GroupMemberModel>[];
+
+      final List<GroupMemberModel> members = [];
+      val.forEach((key, data) {
+        if (data is Map) {
+          members.add(GroupMemberModel.fromMap(data, key.toString()));
+        }
+      });
+
+      return members;
+    });
+  }
+
+  Future<void> addMemberToGroup({
+    required String groupId,
+    required String targetUid,
+    String role = 'member',
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updates = <String, dynamic>{
+      '${AppConstants.groupMembersPath}/$groupId/$targetUid': GroupMemberModel(
+        uid: targetUid,
+        role: role,
+        joinedAt: now,
+      ).toMap(),
+      '${AppConstants.userGroupsPath}/$targetUid/$groupId': true,
+      '${AppConstants.groupsPath}/$groupId/updatedAt': now,
+    };
+
+    final membersSnapshot = await _groupMembersRef.child(groupId).get();
+    int currentCount = 0;
+    if (membersSnapshot.exists && membersSnapshot.value is Map) {
+      currentCount = (membersSnapshot.value as Map).length;
+    }
+    updates['${AppConstants.groupsPath}/$groupId/memberCount'] = currentCount + 1;
+
+    await _db.ref().update(updates);
+  }
+
+  Future<void> removeMemberFromGroup({
+    required String groupId,
+    required String targetUid,
+  }) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final updates = <String, dynamic>{
+      '${AppConstants.groupMembersPath}/$groupId/$targetUid': null,
+      '${AppConstants.userGroupsPath}/$targetUid/$groupId': null,
+      '${AppConstants.groupsPath}/$groupId/updatedAt': now,
+    };
+
+    final membersSnapshot = await _groupMembersRef.child(groupId).get();
+    int currentCount = 1;
+    if (membersSnapshot.exists && membersSnapshot.value is Map) {
+      currentCount = (membersSnapshot.value as Map).length;
+    }
+    final newCount = (currentCount - 1).clamp(0, 9999);
+    updates['${AppConstants.groupsPath}/$groupId/memberCount'] = newCount;
+
+    await _db.ref().update(updates);
+  }
+
+  Future<void> leaveGroup({
+    required String groupId,
+    required String uid,
+  }) async {
+    await removeMemberFromGroup(groupId: groupId, targetUid: uid);
+  }
+
+  Future<void> sendGroupTextMessage({
+    required String groupId,
+    required MessageModel message,
+  }) async {
+    final msgId = _groupMessagesRef.child(groupId).push().key!;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final fullMessage = message.copyWith(id: msgId, timestamp: now);
+
+    final summaryText = fullMessage.isImage
+        ? '📷 Photo'
+        : (fullMessage.isLocation ? '📍 Shared Location' : fullMessage.text);
+
+    final updates = <String, dynamic>{
+      '${AppConstants.groupMessagesPath}/$groupId/$msgId': fullMessage.toMap(),
+      '${AppConstants.groupsPath}/$groupId/lastMessageText': summaryText,
+      '${AppConstants.groupsPath}/$groupId/lastMessageTimestamp': now,
+      '${AppConstants.groupsPath}/$groupId/lastMessageSenderId': fullMessage.senderId,
+      '${AppConstants.groupsPath}/$groupId/lastMessageSenderName': fullMessage.senderName,
+      '${AppConstants.groupsPath}/$groupId/updatedAt': now,
+    };
+
+    await _db.ref().update(updates);
+  }
+
+  Stream<List<MessageModel>> listenToGroupMessages(String groupId) {
+    return _groupMessagesRef
+        .child(groupId)
+        .orderByChild('timestamp')
+        .limitToLast(50)
+        .onValue
+        .map((event) {
+      final List<MessageModel> messages = [];
+      if (event.snapshot.exists && event.snapshot.value != null) {
+        final data = event.snapshot.value;
+        if (data is Map) {
+          data.forEach((key, value) {
+            if (value is Map) {
+              messages.add(MessageModel.fromMap(value, key.toString()));
+            }
+          });
+        }
+      }
+      messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      return messages;
+    });
+  }
+
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
   DatabaseReference get userTokensRef => _userTokensRef;
@@ -398,4 +617,8 @@ class DatabaseService {
   DatabaseReference get sentRequestsRef => _sentRequestsRef;
   DatabaseReference get chatsRef => _chatsRef;
   DatabaseReference get emergencyAlertsRef => _emergencyAlertsRef;
+  DatabaseReference get groupsRef => _groupsRef;
+  DatabaseReference get groupMembersRef => _groupMembersRef;
+  DatabaseReference get userGroupsRef => _userGroupsRef;
+  DatabaseReference get groupMessagesRef => _groupMessagesRef;
 }
