@@ -34,18 +34,25 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
   final MapController _mapController = MapController();
   final DatabaseService _databaseService = DatabaseService();
   final LocationService _locationService = LocationService();
+
   StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<GroupLocationSessionModel?>? _sessionSubscription;
+  StreamSubscription<List<GroupSessionParticipantModel>>? _participantsSubscription;
+
   bool _hasInitialCentered = false;
+  bool _isBroadcasting = false;
+  int _lastBroadcastTimestamp = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initLiveTracking();
+      _initInitialCamera();
+      _initSessionListeners();
     });
   }
 
-  void _initLiveTracking() async {
+  void _initInitialCamera() async {
     final locationProvider = context.read<LocationProvider>();
     final currentPos = locationProvider.currentPosition;
     if (currentPos != null) {
@@ -58,34 +65,74 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
         _hasInitialCentered = true;
       }
     }
+  }
 
-    _locationSubscription = _locationService.getPositionStream().listen((Position pos) {
-      if (mounted) {
-        final authProvider = context.read<AuthProvider>();
-        final currentUid = authProvider.user?.uid;
-        if (currentUid != null) {
-          _databaseService.updateGroupLiveLocation(
-            groupId: widget.group.id,
-            uid: currentUid,
-            latitude: pos.latitude,
-            longitude: pos.longitude,
-            heading: pos.heading,
-            speed: pos.speed,
-            accuracy: pos.accuracy,
-          );
-        }
+  void _initSessionListeners() {
+    final currentUid = context.read<AuthProvider>().user?.uid;
+    if (currentUid == null) return;
 
-        if (!_hasInitialCentered) {
-          _mapController.move(LatLng(pos.latitude, pos.longitude), 15.0);
-          _hasInitialCentered = true;
-        }
+    // Listen to active session status
+    _sessionSubscription = _databaseService.listenToActiveGroupSession(widget.group.id).listen((session) {
+      if (!mounted) return;
+      if (session == null || !session.isActive) {
+        _stopBroadcasting(currentUid);
       }
     });
+
+    // Listen to participants list to determine if user should broadcast
+    _participantsSubscription = _databaseService.listenToGroupSessionParticipants(widget.group.id).listen((participants) {
+      if (!mounted) return;
+      final isUserSharing = participants.any((p) => p.uid == currentUid && p.isSharing);
+      if (isUserSharing) {
+        _startBroadcasting(currentUid);
+      } else {
+        _stopBroadcasting(currentUid);
+      }
+    });
+  }
+
+  void _startBroadcasting(String currentUid) {
+    if (_isBroadcasting) return;
+    _isBroadcasting = true;
+
+    _locationSubscription?.cancel();
+    _locationSubscription = _locationService.getGroupPositionStream(distanceFilter: 15).listen((Position pos) {
+      if (!mounted || !_isBroadcasting) return;
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // Enforce at least 10s between telemetry uploads to conserve battery & quota
+      if (now - _lastBroadcastTimestamp < 10000) return;
+      _lastBroadcastTimestamp = now;
+
+      _databaseService.updateGroupLiveLocation(
+        groupId: widget.group.id,
+        uid: currentUid,
+        latitude: pos.latitude,
+        longitude: pos.longitude,
+        heading: pos.heading,
+        speed: pos.speed,
+        accuracy: pos.accuracy,
+      );
+
+      if (!_hasInitialCentered) {
+        _mapController.move(LatLng(pos.latitude, pos.longitude), 15.0);
+        _hasInitialCentered = true;
+      }
+    });
+  }
+
+  void _stopBroadcasting(String currentUid) {
+    if (!_isBroadcasting && _locationSubscription == null) return;
+    _isBroadcasting = false;
+    _locationSubscription?.cancel();
+    _locationSubscription = null;
   }
 
   @override
   void dispose() {
     _locationSubscription?.cancel();
+    _sessionSubscription?.cancel();
+    _participantsSubscription?.cancel();
     super.dispose();
   }
 
@@ -531,6 +578,7 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                                       ),
                                       onPressed: () async {
                                         if (isCurrentUserSharing) {
+                                          _stopBroadcasting(currentUid);
                                           await _databaseService.leaveGroupLocationSession(
                                             groupId: widget.group.id,
                                             uid: currentUid,
@@ -542,6 +590,7 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                                             displayName: authProvider.userModel?.name ?? 'User',
                                             avatarPresetIndex: authProvider.userModel?.avatarPresetIndex ?? 0,
                                           );
+                                          _startBroadcasting(currentUid);
                                         }
                                       },
                                       child: Text(

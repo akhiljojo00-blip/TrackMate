@@ -65,4 +65,15 @@ class LocationService {
       ),
     );
   }
+
+  Stream<Position> getGroupPositionStream({
+    int distanceFilter = 15,
+  }) {
+    return Geolocator.getPositionStream(
+      locationSettings: LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: distanceFilter,
+      ),
+    );
+  }
 }
