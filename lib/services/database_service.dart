@@ -40,6 +40,30 @@ class DatabaseService {
     return null;
   }
 
+  Future<String?> getEmailByUsername(String username) async {
+    try {
+      final query = username.trim().toLowerCase();
+      final snapshot = await _usersRef
+          .orderByChild('username')
+          .equalTo(query)
+          .limitToFirst(1)
+          .get();
+
+      if (snapshot.exists && snapshot.value != null) {
+        final value = snapshot.value;
+        if (value is Map) {
+          final firstUser = value.values.first;
+          if (firstUser is Map && firstUser['email'] != null) {
+            return firstUser['email'].toString();
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Notice: unable to query user email by username: $e');
+    }
+    return null;
+  }
+
   Stream<DatabaseEvent> getUserStream(String uid) {
     return _usersRef.child(uid).onValue;
   }

@@ -4,6 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import '../map/map_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,10 +32,26 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = context.read<AuthProvider>();
-    await authProvider.signIn(
+    final success = await authProvider.signIn(
       email: _emailController.text,
       password: _passwordController.text,
     );
+
+    if (success && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MapScreen()),
+      );
+    } else if (!success && mounted) {
+      final error = authProvider.errorMessage ?? 'Sign in failed. Please check your credentials.';
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -102,15 +119,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   CustomTextField(
                     controller: _emailController,
-                    labelText: 'Email',
-                    hintText: 'name@example.com',
-                    keyboardType: TextInputType.emailAddress,
+                    labelText: 'Email or Username',
+                    hintText: 'name@example.com or username',
+                    keyboardType: TextInputType.text,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
-                        return 'Please enter a valid email';
+                        return 'Please enter your email or username';
                       }
                       return null;
                     },

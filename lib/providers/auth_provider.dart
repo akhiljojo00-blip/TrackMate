@@ -141,9 +141,9 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     _errorMessage = null;
     try {
-      final trimmedEmail = email.trim();
-      if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
-        _errorMessage = 'Please enter a valid email address';
+      final input = email.trim();
+      if (input.isEmpty) {
+        _errorMessage = 'Please enter your email or username';
         _setLoading(false);
         return false;
       }
@@ -153,8 +153,20 @@ class AuthProvider extends ChangeNotifier {
         return false;
       }
 
+      String resolvedEmail = input;
+      if (!input.contains('@')) {
+        // Resolve username to registered email
+        final fetchedEmail = await _databaseService.getEmailByUsername(input);
+        if (fetchedEmail == null || fetchedEmail.isEmpty) {
+          _errorMessage = 'No account found with username "$input".';
+          _setLoading(false);
+          return false;
+        }
+        resolvedEmail = fetchedEmail;
+      }
+
       final credential = await _authService.signInWithEmail(
-        email: trimmedEmail,
+        email: resolvedEmail,
         password: password,
       );
 
