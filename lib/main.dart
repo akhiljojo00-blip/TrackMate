@@ -10,6 +10,7 @@ import 'providers/connection_provider.dart';
 import 'providers/chat_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/map/map_screen.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   runZonedGuarded(() async {
@@ -22,6 +23,7 @@ void main() async {
 
     try {
       await Firebase.initializeApp();
+      await NotificationService().initialize();
     } catch (e, stackTrace) {
       debugPrint('Firebase initialization notice: $e');
       debugPrint('Stack trace: $stackTrace');
