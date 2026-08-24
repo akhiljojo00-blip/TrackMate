@@ -31,7 +31,7 @@ class LocationModel {
 
   factory LocationModel.fromMap(Map<dynamic, dynamic> map, String userId) {
     int parsedTimestamp;
-    final rawTimestamp = map['timestamp'];
+    final rawTimestamp = map['timestamp'] ?? map['updatedAt'];
     if (rawTimestamp is num) {
       parsedTimestamp = rawTimestamp.toInt();
     } else if (rawTimestamp is String) {

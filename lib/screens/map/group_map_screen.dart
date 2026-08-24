@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -96,12 +97,37 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
     }
   }
 
+  void _fitAllParticipants(List<LatLng> points) {
+    if (points.isEmpty) return;
+    if (points.length == 1) {
+      _mapController.move(points.first, 16.0);
+      return;
+    }
+    final bounds = LatLngBounds.fromPoints(points);
+    _mapController.fitCamera(
+      CameraFit.bounds(
+        bounds: bounds,
+        padding: const EdgeInsets.all(60.0),
+      ),
+    );
+  }
+
+  String _formatLastUpdated(int timestamp) {
+    final diffMs = DateTime.now().millisecondsSinceEpoch - timestamp;
+    if (diffMs < 30000) return 'Just now';
+    if (diffMs < 60000) return '${(diffMs / 1000).round()}s ago';
+    final mins = (diffMs / 60000).round();
+    if (mins < 60) return '${mins}m ago';
+    return '${(mins / 60).round()}h ago';
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
     final locationProvider = context.watch<LocationProvider>();
     final currentUid = authProvider.user?.uid ?? '';
     final currentLatLng = locationProvider.currentLatLng;
+    final now = DateTime.now().millisecondsSinceEpoch;
 
     return StreamBuilder<GroupLocationSessionModel?>(
       stream: _databaseService.listenToActiveGroupSession(widget.group.id),
@@ -145,6 +171,7 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                       final locations = locationsSnapshot.data ?? {};
 
                       final List<Marker> markers = [];
+                      final List<LatLng> activePoints = [];
 
                       // Add participant markers
                       locations.forEach((uid, loc) {
@@ -155,62 +182,108 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                             ? '${authProvider.userModel?.name ?? 'You'} (You)'
                             : (participant?.displayName ?? 'Member');
 
+                        final isStale = (now - loc.timestamp) > 120000;
+                        final heading = loc.heading ?? 0.0;
+                        final speed = loc.speed ?? 0.0;
+                        final hasHeading = heading > 0 && speed > 0.5;
+
+                        final point = LatLng(loc.latitude, loc.longitude);
+                        activePoints.add(point);
+
                         markers.add(
                           Marker(
-                            point: LatLng(loc.latitude, loc.longitude),
-                            width: 110,
-                            height: 70,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black87,
-                                    borderRadius: BorderRadius.circular(8),
+                            point: point,
+                            width: 120,
+                            height: 84,
+                            child: Opacity(
+                              opacity: isStale ? 0.55 : 1.0,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Callout tag
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isStale ? Colors.amber.shade900 : Colors.black87,
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.2),
+                                          blurRadius: 4,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      isStale ? '$displayName • Signal Lost' : displayName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                  child: Text(
-                                    displayName,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    gradient: LinearGradient(
-                                      colors: preset.gradientColors,
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                    ),
-                                    border: Border.all(
-                                      color: isMe ? AppColors.primary : Colors.white,
-                                      width: 2.5,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: preset.gradientColors.first.withValues(alpha: 0.5),
-                                        blurRadius: 8,
-                                        spreadRadius: 2,
+                                  const SizedBox(height: 2),
+
+                                  // Direction Cone + Avatar Pin
+                                  Stack(
+                                    alignment: Alignment.center,
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // Movement Heading Arrow
+                                      if (hasHeading)
+                                        Transform.rotate(
+                                          angle: heading * (math.pi / 180),
+                                          child: Container(
+                                            width: 48,
+                                            height: 48,
+                                            alignment: Alignment.topCenter,
+                                            child: const Icon(
+                                              Icons.navigation_rounded,
+                                              size: 16,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        ),
+
+                                      // Avatar Bubble
+                                      Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          gradient: LinearGradient(
+                                            colors: preset.gradientColors,
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          border: Border.all(
+                                            color: isStale
+                                                ? Colors.amber
+                                                : (isMe ? AppColors.primary : Colors.white),
+                                            width: 2.5,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: (isStale ? Colors.amber : preset.gradientColors.first)
+                                                  .withValues(alpha: 0.5),
+                                              blurRadius: 8,
+                                              spreadRadius: 2,
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            preset.icon,
+                                            size: 18,
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  child: Center(
-                                    child: Icon(
-                                      preset.icon,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -235,22 +308,49 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                 },
               ),
 
-              // Recenter Floating Button
+              // Side Floating Controls (Auto-Fit & Recenter)
               Positioned(
-                bottom: 90,
+                bottom: 175,
                 right: 16,
-                child: FloatingActionButton.small(
-                  heroTag: 'group_recenter_fab',
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.primary,
-                  onPressed: _recenterOnUser,
-                  child: const Icon(Icons.my_location),
+                child: StreamBuilder<Map<String, LocationModel>>(
+                  stream: _databaseService.listenToGroupLiveLocations(widget.group.id),
+                  builder: (context, snapshot) {
+                    final locations = snapshot.data ?? {};
+                    final points = locations.values
+                        .map((l) => LatLng(l.latitude, l.longitude))
+                        .toList();
+
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (points.isNotEmpty) ...[
+                          FloatingActionButton.small(
+                            heroTag: 'group_autofit_fab',
+                            backgroundColor: AppColors.surface,
+                            foregroundColor: AppColors.primary,
+                            tooltip: 'Fit all members on map',
+                            onPressed: () => _fitAllParticipants(points),
+                            child: const Icon(Icons.filter_center_focus_rounded),
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        FloatingActionButton.small(
+                          heroTag: 'group_recenter_fab',
+                          backgroundColor: AppColors.surface,
+                          foregroundColor: AppColors.primary,
+                          tooltip: 'Recenter on my location',
+                          onPressed: _recenterOnUser,
+                          child: const Icon(Icons.my_location),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
 
-              // Bottom Session Control Pill
+              // Horizontal Member Tray & Session Control Panel
               Positioned(
-                bottom: 20,
+                bottom: 16,
                 left: 16,
                 right: 16,
                 child: StreamBuilder<List<GroupSessionParticipantModel>>(
@@ -259,99 +359,202 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                     final participants = participantsSnapshot.data ?? [];
                     final bool isCurrentUserSharing = participants.any((p) => p.uid == currentUid);
 
-                    if (!isSessionActive) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.black87,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.info_outline, color: Colors.white70, size: 18),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'This location session has ended.',
-                                style: TextStyle(color: Colors.white, fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
+                    return StreamBuilder<Map<String, LocationModel>>(
+                      stream: _databaseService.listenToGroupLiveLocations(widget.group.id),
+                      builder: (context, locSnapshot) {
+                        final locations = locSnapshot.data ?? {};
 
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: isCurrentUserSharing ? AppColors.success : Colors.orange,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  isCurrentUserSharing ? 'You are sharing live GPS' : 'Sharing is paused for you',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Horizontal Participant Quick-Focus Tray
+                            if (isSessionActive && participants.isNotEmpty) ...[
+                              Container(
+                                height: 58,
+                                margin: const EdgeInsets.only(bottom: 10),
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: participants.length,
+                                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                                  itemBuilder: (context, index) {
+                                    final p = participants[index];
+                                    final loc = locations[p.uid];
+                                    final isMe = p.uid == currentUid;
+                                    final preset = AvatarPresets.getPreset(p.avatarPresetIndex);
+                                    final isStale = loc != null && (now - loc.timestamp) > 120000;
+                                    final timeStr = loc != null ? _formatLastUpdated(loc.timestamp) : 'Joining...';
+
+                                    return GestureDetector(
+                                      onTap: () {
+                                        if (loc != null) {
+                                          _mapController.move(
+                                            LatLng(loc.latitude, loc.longitude),
+                                            16.5,
+                                          );
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surface,
+                                          borderRadius: BorderRadius.circular(16),
+                                          border: Border.all(
+                                            color: isMe
+                                                ? AppColors.primary
+                                                : (isStale ? Colors.amber : Colors.grey.shade300),
+                                            width: isMe ? 1.5 : 1.0,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.08),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 30,
+                                              height: 30,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: LinearGradient(
+                                                  colors: preset.gradientColors,
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                              ),
+                                              child: Center(
+                                                child: Icon(preset.icon, size: 14, color: Colors.white),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  isMe ? 'You' : p.displayName,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                                ),
+                                                Text(
+                                                  timeStr,
+                                                  style: TextStyle(
+                                                    fontSize: 9,
+                                                    color: isStale ? Colors.amber.shade900 : AppColors.textSecondary,
+                                                    fontWeight: isStale ? FontWeight.bold : FontWeight.normal,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
-                                Text(
-                                  '${participants.length} member(s) sharing',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                            ],
+
+                            // Bottom Session Status Pill
+                            if (!isSessionActive)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                              ],
-                            ),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isCurrentUserSharing ? AppColors.error : AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: () async {
-                              if (isCurrentUserSharing) {
-                                await _databaseService.leaveGroupLocationSession(
-                                  groupId: widget.group.id,
-                                  uid: currentUid,
-                                );
-                              } else {
-                                await _databaseService.joinGroupLocationSession(
-                                  groupId: widget.group.id,
-                                  uid: currentUid,
-                                  displayName: authProvider.userModel?.name ?? 'User',
-                                  avatarPresetIndex: authProvider.userModel?.avatarPresetIndex ?? 0,
-                                );
-                              }
-                            },
-                            child: Text(
-                              isCurrentUserSharing ? 'Stop' : 'Share',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.info_outline, color: Colors.white70, size: 18),
+                                    SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'This location session has ended.',
+                                        style: TextStyle(color: Colors.white, fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.1),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        color: isCurrentUserSharing ? AppColors.success : Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            isCurrentUserSharing ? 'You are sharing live GPS' : 'Sharing is paused for you',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                          ),
+                                          Text(
+                                            '${participants.length} member(s) sharing',
+                                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: isCurrentUserSharing ? AppColors.error : AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      onPressed: () async {
+                                        if (isCurrentUserSharing) {
+                                          await _databaseService.leaveGroupLocationSession(
+                                            groupId: widget.group.id,
+                                            uid: currentUid,
+                                          );
+                                        } else {
+                                          await _databaseService.joinGroupLocationSession(
+                                            groupId: widget.group.id,
+                                            uid: currentUid,
+                                            displayName: authProvider.userModel?.name ?? 'User',
+                                            avatarPresetIndex: authProvider.userModel?.avatarPresetIndex ?? 0,
+                                          );
+                                        }
+                                      },
+                                      child: Text(
+                                        isCurrentUserSharing ? 'Stop' : 'Share',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),

@@ -876,6 +876,7 @@ class DatabaseService {
       'heading': heading,
       'speed': speed,
       'accuracy': accuracy,
+      'timestamp': now,
       'updatedAt': now,
     });
   }
