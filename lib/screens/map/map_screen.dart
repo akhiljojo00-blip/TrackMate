@@ -20,7 +20,14 @@ import '../profile/profile_screen.dart';
 import '../auth/login_screen.dart';
 
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  final LatLng? initialFocusLocation;
+  final String? focusLabel;
+
+  const MapScreen({
+    super.key,
+    this.initialFocusLocation,
+    this.focusLabel,
+  });
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -41,14 +48,19 @@ class _MapScreenState extends State<MapScreen> {
         context.read<ConnectionProvider>().initializeForUser(user.uid);
       }
 
-      final locationProvider = context.read<LocationProvider>();
-      final position = await locationProvider.fetchCurrentPosition();
-      if (position != null && mounted) {
-        _mapController.move(
-          LatLng(position.latitude, position.longitude),
-          15.0,
-        );
+      if (widget.initialFocusLocation != null) {
+        _mapController.move(widget.initialFocusLocation!, 16.0);
         _hasInitialCentered = true;
+      } else {
+        final locationProvider = context.read<LocationProvider>();
+        final position = await locationProvider.fetchCurrentPosition();
+        if (position != null && mounted) {
+          _mapController.move(
+            LatLng(position.latitude, position.longitude),
+            15.0,
+          );
+          _hasInitialCentered = true;
+        }
       }
     });
   }
@@ -730,6 +742,34 @@ class _MapScreenState extends State<MapScreen> {
               ),
               MarkerLayer(
                 markers: [
+                  if (widget.initialFocusLocation != null)
+                    Marker(
+                      point: widget.initialFocusLocation!,
+                      width: 140,
+                      height: 70,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.black87,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              widget.focusLabel ?? 'Shared Location',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.location_on,
+                            color: Color(0xFFE91E63),
+                            size: 38,
+                          ),
+                        ],
+                      ),
+                    ),
                   if (currentLatLng != null)
                     Marker(
                       point: currentLatLng,

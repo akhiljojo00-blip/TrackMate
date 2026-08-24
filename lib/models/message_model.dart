@@ -6,6 +6,8 @@ class MessageModel {
   final int timestamp;
   final String type;
   final String? imageUrl;
+  final double? latitude;
+  final double? longitude;
 
   const MessageModel({
     required this.id,
@@ -15,9 +17,12 @@ class MessageModel {
     required this.timestamp,
     this.type = 'text',
     this.imageUrl,
+    this.latitude,
+    this.longitude,
   });
 
   bool get isImage => type == 'image' && imageUrl != null && imageUrl!.isNotEmpty;
+  bool get isLocation => type == 'location' && latitude != null && longitude != null;
 
   Map<String, dynamic> toMap() {
     return {
@@ -28,6 +33,8 @@ class MessageModel {
       'timestamp': timestamp,
       'type': type,
       'imageUrl': imageUrl,
+      'latitude': latitude,
+      'longitude': longitude,
     };
   }
 
@@ -40,6 +47,8 @@ class MessageModel {
       timestamp: (map['timestamp'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch,
       type: map['type']?.toString() ?? 'text',
       imageUrl: map['imageUrl']?.toString(),
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -51,6 +60,8 @@ class MessageModel {
     int? timestamp,
     String? type,
     String? imageUrl,
+    double? latitude,
+    double? longitude,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -60,6 +71,8 @@ class MessageModel {
       timestamp: timestamp ?? this.timestamp,
       type: type ?? this.type,
       imageUrl: imageUrl ?? this.imageUrl,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../models/message_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../widgets/full_screen_image_viewer.dart';
+import '../map/map_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final String peerUid;
@@ -88,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final currentUid = authProvider.user?.uid;
     final currentName = authProvider.userModel?.name ?? 'User';
 
-    if (currentUid == null || chatProvider.isUploadingImage) return;
+    if (currentUid == null || chatProvider.isUploadingImage || chatProvider.isAcquiringLocation) return;
 
     showModalBottomSheet(
       context: context,
@@ -111,7 +113,7 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
               const SizedBox(height: 12),
               const Text(
-                'Share Media',
+                'Share to Chat',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
@@ -152,6 +154,25 @@ class _ChatScreenState extends State<ChatScreen> {
                     currentUid: currentUid,
                     currentName: currentName,
                     source: ImageSource.gallery,
+                  );
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE91E63).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.location_on_rounded, color: Color(0xFFE91E63)),
+                ),
+                title: const Text('Share Current Location'),
+                subtitle: const Text('Send a one-time GPS snapshot'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  chatProvider.sendLocationMessage(
+                    currentUid: currentUid,
+                    currentName: currentName,
                   );
                 },
               ),
@@ -274,6 +295,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInputBar(ChatProvider chatProvider) {
+    final bool isBusy = chatProvider.isSending || chatProvider.isUploadingImage || chatProvider.isAcquiringLocation;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
@@ -317,13 +340,38 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
 
+            // Location acquisition banner
+            if (chatProvider.isAcquiringLocation)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8.0, left: 4.0, right: 4.0),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFFE91E63),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Acquiring current GPS location...',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             Row(
               children: [
-                // Media attachment button
+                // Media / Location attachment button
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 26),
-                  tooltip: 'Share photo',
-                  onPressed: chatProvider.isUploadingImage ? null : () => _showMediaPickerSheet(context),
+                  tooltip: 'Share photo or location',
+                  onPressed: isBusy ? null : () => _showMediaPickerSheet(context),
                 ),
                 Expanded(
                   child: TextField(
@@ -350,7 +398,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   color: AppColors.primary,
                   shape: const CircleBorder(),
                   child: IconButton(
-                    icon: chatProvider.isSending
+                    icon: isBusy
                         ? const SizedBox(
                             width: 20,
                             height: 20,
@@ -360,7 +408,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             ),
                           )
                         : const Icon(Icons.send_rounded, color: Colors.white),
-                    onPressed: (chatProvider.isSending || chatProvider.isUploadingImage) ? null : _handleSendMessage,
+                    onPressed: isBusy ? null : _handleSendMessage,
                   ),
                 ),
               ],
@@ -394,7 +442,7 @@ class _MessageBubble extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
-        padding: message.isImage
+        padding: (message.isImage || message.isLocation)
             ? const EdgeInsets.all(6)
             : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
@@ -483,8 +531,99 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ),
 
-            // Caption Text (if image has caption or if message is regular text)
-            if (message.text.isNotEmpty) ...[
+            // Location Snapshot Card
+            if (message.isLocation)
+              Container(
+                width: 230,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.white.withValues(alpha: 0.15) : AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE91E63).withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.location_on_rounded,
+                            color: Color(0xFFE91E63),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Shared Location',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: isMe ? Colors.white : AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                'One-time GPS snapshot',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: isMe ? Colors.white70 : AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isMe ? Colors.white : AppColors.primary,
+                          foregroundColor: isMe ? AppColors.primary : Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        icon: const Icon(Icons.map_rounded, size: 14),
+                        label: const Text(
+                          'VIEW ON MAP',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MapScreen(
+                                initialFocusLocation: LatLng(message.latitude!, message.longitude!),
+                                focusLabel: '${message.senderName}\'s Location',
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Caption Text (if text is not empty and not the default location label)
+            if (message.text.isNotEmpty && !message.isLocation) ...[
               Padding(
                 padding: message.isImage
                     ? const EdgeInsets.only(top: 6, left: 6, right: 6)
@@ -500,7 +639,7 @@ class _MessageBubble extends StatelessWidget {
             ],
             const SizedBox(height: 4),
             Padding(
-              padding: message.isImage
+              padding: (message.isImage || message.isLocation)
                   ? const EdgeInsets.only(right: 6, bottom: 2)
                   : EdgeInsets.zero,
               child: Text(

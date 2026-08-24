@@ -21,6 +21,8 @@ void main() {
       expect(map['text'], 'Hello, how are you?');
       expect(map['type'], 'text');
       expect(map['imageUrl'], isNull);
+      expect(map['latitude'], isNull);
+      expect(map['longitude'], isNull);
       expect(map['timestamp'], now);
 
       final parsed = MessageModel.fromMap(map, 'msg_101');
@@ -30,7 +32,10 @@ void main() {
       expect(parsed.text, 'Hello, how are you?');
       expect(parsed.type, 'text');
       expect(parsed.imageUrl, isNull);
+      expect(parsed.latitude, isNull);
+      expect(parsed.longitude, isNull);
       expect(parsed.isImage, false);
+      expect(parsed.isLocation, false);
       expect(parsed.timestamp, now);
     });
 
@@ -51,13 +56,47 @@ void main() {
       expect(map['type'], 'image');
       expect(map['imageUrl'], 'https://firebasestorage.googleapis.com/v0/b/bucket/o/photo.jpg');
       expect(map['text'], 'Look at this photo');
+      expect(map['latitude'], isNull);
+      expect(map['longitude'], isNull);
 
       final parsed = MessageModel.fromMap(map, 'msg_102');
       expect(parsed.id, 'msg_102');
       expect(parsed.type, 'image');
       expect(parsed.imageUrl, 'https://firebasestorage.googleapis.com/v0/b/bucket/o/photo.jpg');
       expect(parsed.isImage, true);
+      expect(parsed.isLocation, false);
       expect(parsed.text, 'Look at this photo');
+    });
+
+    test('MessageModel serializes toMap and deserializes fromMap correctly for location snapshots', () {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final message = MessageModel(
+        id: 'msg_103',
+        senderId: 'user_1',
+        senderName: 'Alice',
+        text: '📍 Shared Location',
+        type: 'location',
+        latitude: 37.7749,
+        longitude: -122.4194,
+        timestamp: now,
+      );
+
+      final map = message.toMap();
+      expect(map['id'], 'msg_103');
+      expect(map['type'], 'location');
+      expect(map['latitude'], 37.7749);
+      expect(map['longitude'], -122.4194);
+      expect(map['text'], '📍 Shared Location');
+      expect(map['imageUrl'], isNull);
+
+      final parsed = MessageModel.fromMap(map, 'msg_103');
+      expect(parsed.id, 'msg_103');
+      expect(parsed.type, 'location');
+      expect(parsed.latitude, 37.7749);
+      expect(parsed.longitude, -122.4194);
+      expect(parsed.isLocation, true);
+      expect(parsed.isImage, false);
+      expect(parsed.text, '📍 Shared Location');
     });
 
     test('MessageModel backwards compatibility: old messages without type default to text', () {
@@ -75,7 +114,10 @@ void main() {
       expect(parsed.text, 'Legacy message format');
       expect(parsed.type, 'text');
       expect(parsed.imageUrl, isNull);
+      expect(parsed.latitude, isNull);
+      expect(parsed.longitude, isNull);
       expect(parsed.isImage, false);
+      expect(parsed.isLocation, false);
     });
 
     test('MessageModel copyWith works as expected', () {
@@ -90,16 +132,19 @@ void main() {
       final updated = message.copyWith(
         text: 'Updated Text',
         id: 'msg_2',
-        type: 'image',
-        imageUrl: 'https://example.com/img.jpg',
+        type: 'location',
+        latitude: 12.9716,
+        longitude: 77.5946,
       );
       expect(updated.id, 'msg_2');
       expect(updated.senderId, 'user_1');
       expect(updated.senderName, 'Alice');
       expect(updated.text, 'Updated Text');
-      expect(updated.type, 'image');
-      expect(updated.imageUrl, 'https://example.com/img.jpg');
-      expect(updated.isImage, true);
+      expect(updated.type, 'location');
+      expect(updated.latitude, 12.9716);
+      expect(updated.longitude, 77.5946);
+      expect(updated.isLocation, true);
+      expect(updated.isImage, false);
       expect(updated.timestamp, 1000);
     });
   });

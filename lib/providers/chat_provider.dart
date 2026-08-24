@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/connection_model.dart';
 import '../models/message_model.dart';
@@ -18,6 +19,7 @@ class ChatProvider extends ChangeNotifier {
   List<MessageModel> _messages = [];
   bool _isSending = false;
   bool _isUploadingImage = false;
+  bool _isAcquiringLocation = false;
   double _uploadProgress = 0.0;
   String? _chatError;
   String? _activeChatId;
@@ -31,6 +33,7 @@ class ChatProvider extends ChangeNotifier {
   List<MessageModel> get messages => _messages;
   bool get isSending => _isSending;
   bool get isUploadingImage => _isUploadingImage;
+  bool get isAcquiringLocation => _isAcquiringLocation;
   double get uploadProgress => _uploadProgress;
   String? get chatError => _chatError;
   String? get activeChatId => _activeChatId;
@@ -46,6 +49,7 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _chatError = null;
     _isUploadingImage = false;
+    _isAcquiringLocation = false;
     _uploadProgress = 0.0;
     _messagesSub?.cancel();
 
@@ -72,6 +76,7 @@ class ChatProvider extends ChangeNotifier {
     _chatError = null;
     _isSending = false;
     _isUploadingImage = false;
+    _isAcquiringLocation = false;
     _uploadProgress = 0.0;
     notifyListeners();
   }
@@ -104,7 +109,7 @@ class ChatProvider extends ChangeNotifier {
                 if (msg.senderId != currentUid && _activeChatId != chatId) {
                   final displayBody = msg.isImage
                       ? (msg.text.isNotEmpty ? '📷 ${msg.text}' : '📷 Sent a photo')
-                      : msg.text;
+                      : (msg.isLocation ? '📍 Shared a location' : msg.text);
 
                   _notificationService.showChatMessageNotification(
                     senderName: msg.senderName,
@@ -229,6 +234,73 @@ class ChatProvider extends ChangeNotifier {
     } finally {
       _isUploadingImage = false;
       _uploadProgress = 0.0;
+      notifyListeners();
+    }
+  }
+
+  /// Captures a ONE-TIME GPS coordinate snapshot and attaches it to a chat message.
+  /// INVARIANT: This is strictly a one-time snapshot and does NOT enable live location tracking,
+  /// modify user location permissions, or alter `/locations`.
+  Future<bool> sendLocationMessage({
+    required String currentUid,
+    required String currentName,
+  }) async {
+    if (_activeChatId == null) return false;
+
+    _isAcquiringLocation = true;
+    _chatError = null;
+    notifyListeners();
+
+    try {
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _chatError = 'Location services are disabled on your device. Please enable GPS in settings.';
+        return false;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _chatError = 'Location permission is required to share current location.';
+          return false;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _chatError = 'Location permission is permanently denied. Please enable it in system settings.';
+        return false;
+      }
+
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      final message = MessageModel(
+        id: '',
+        senderId: currentUid,
+        senderName: currentName,
+        text: '📍 Shared Location',
+        type: 'location',
+        latitude: position.latitude,
+        longitude: position.longitude,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+      );
+
+      await _databaseService.sendMessage(
+        chatId: _activeChatId!,
+        message: message,
+      );
+      return true;
+    } catch (e) {
+      _chatError = 'Failed to acquire location: $e';
+      debugPrint('Error sending location message: $e');
+      return false;
+    } finally {
+      _isAcquiringLocation = false;
       notifyListeners();
     }
   }
