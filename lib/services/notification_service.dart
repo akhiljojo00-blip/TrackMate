@@ -221,6 +221,15 @@ class NotificationService {
     );
   }
 
+  Future<void> showEmergencySosNotification({required String senderName}) async {
+    await _showLocalNotification(
+      id: senderName.hashCode,
+      title: '🚨 EMERGENCY ALERT',
+      body: '$senderName has triggered an SOS beacon! Tap to view live location.',
+      payload: 'emergency_sos',
+    );
+  }
+
   Future<String?> getDeviceToken() async {
     try {
       final token = await _fcm.getToken();

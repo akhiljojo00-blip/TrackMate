@@ -10,7 +10,9 @@ import '../../providers/connection_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../providers/sos_provider.dart';
+import '../../models/sos_alert_model.dart';
 import '../../widgets/sos_button.dart';
+import '../../widgets/emergency_alert_dialog.dart';
 import '../chat/chat_screen.dart';
 import '../connections/connections_screen.dart';
 
@@ -24,6 +26,8 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
   bool _hasInitialCentered = false;
+  bool _isEmergencyDialogOpen = false;
+  String? _activeDialogAlertUid;
 
   @override
   void initState() {
@@ -448,10 +452,14 @@ class _MapScreenState extends State<MapScreen> {
       connectionProvider.initializeForUser(currentUid);
     }
 
-    // Listen to authorized friends locations and chats
+    // Listen to authorized friends locations, chats, and emergency beacons
     if (currentUid != null && connectionProvider.connections.isNotEmpty) {
       locationProvider.listenToAuthorizedFriends(currentUid, connectionProvider.connections);
       context.read<ChatProvider>().listenToFriendChats(
+        currentUid: currentUid,
+        connections: connectionProvider.connections,
+      );
+      context.read<SosProvider>().listenToFriendEmergencyAlerts(
         currentUid: currentUid,
         connections: connectionProvider.connections,
       );
@@ -462,6 +470,46 @@ class _MapScreenState extends State<MapScreen> {
       _hasInitialCentered = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _mapController.move(currentLatLng, 15.0);
+      });
+    }
+
+    // Check for incoming primary emergency alert
+    final incomingAlert = sosProvider.primaryActiveIncomingAlert;
+    if (incomingAlert != null && !_isEmergencyDialogOpen && _activeDialogAlertUid != incomingAlert.senderUid) {
+      _activeDialogAlertUid = incomingAlert.senderUid;
+      _isEmergencyDialogOpen = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => EmergencyAlertDialog(
+            alert: incomingAlert,
+            onViewOnMap: (coords) {
+              _mapController.move(coords, 16.0);
+            },
+            onDismiss: () {
+              context.read<SosProvider>().dismissDialogForAlert(incomingAlert.senderUid);
+            },
+          ),
+        ).then((_) {
+          _isEmergencyDialogOpen = false;
+        });
+      });
+    } else if (_isEmergencyDialogOpen && _activeDialogAlertUid != null && !sosProvider.activeFriendAlerts.containsKey(_activeDialogAlertUid)) {
+      // Emergency resolved / cancelled by friend!
+      _activeDialogAlertUid = null;
+      _isEmergencyDialogOpen = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('The emergency alert has been resolved/cancelled by your connection.'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
       });
     }
 
@@ -489,6 +537,30 @@ class _MapScreenState extends State<MapScreen> {
           ),
         );
       }
+    }
+
+    // Build emergency markers for active friend distress beacons
+    final emergencyMarkers = <Marker>[];
+    for (final alert in sosProvider.activeFriendAlerts.values) {
+      emergencyMarkers.add(
+        Marker(
+          point: LatLng(alert.latitude, alert.longitude),
+          width: 80,
+          height: 80,
+          child: GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => EmergencyAlertDialog(
+                  alert: alert,
+                  onViewOnMap: (coords) => _mapController.move(coords, 16.0),
+                ),
+              );
+            },
+            child: _EmergencyLocationMarker(alert: alert),
+          ),
+        ),
+      );
     }
 
     return Scaffold(
@@ -656,6 +728,7 @@ class _MapScreenState extends State<MapScreen> {
                       ),
                     ),
                   ...friendMarkers,
+                  ...emergencyMarkers,
                 ],
               ),
             ],
@@ -954,3 +1027,67 @@ class _FriendLocationMarker extends StatelessWidget {
     );
   }
 }
+
+class _EmergencyLocationMarker extends StatelessWidget {
+  final SosAlertModel alert;
+
+  const _EmergencyLocationMarker({required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.error,
+            border: Border.all(color: Colors.white, width: 3),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withValues(alpha: 0.6),
+                blurRadius: 10,
+                spreadRadius: 3,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.warning_rounded,
+              color: Colors.white,
+              size: 24,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.error,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 4,
+              ),
+            ],
+          ),
+          child: Text(
+            'SOS: ${alert.senderName}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
