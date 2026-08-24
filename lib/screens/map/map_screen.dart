@@ -635,6 +635,12 @@ class _MapScreenState extends State<MapScreen> {
                 if (context.mounted) {
                   context.read<ConnectionProvider>().clear();
                   await context.read<AuthProvider>().signOut();
+                  if (context.mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      (route) => false,
+                    );
+                  }
                 }
               }
             },

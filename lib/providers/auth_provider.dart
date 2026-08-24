@@ -7,33 +7,99 @@ import '../services/notification_service.dart';
 import '../models/user_model.dart';
 
 class AuthProvider extends ChangeNotifier {
-  final AuthService _authService = AuthService();
-  final DatabaseService _databaseService = DatabaseService();
-  final NotificationService _notificationService = NotificationService();
+  final AuthService _authService;
+  final DatabaseService _databaseService;
+  final NotificationService _notificationService;
 
   User? _user;
   UserModel? _userModel;
   bool _isLoading = false;
+  bool _isInitialized = false;
   String? _errorMessage;
   StreamSubscription<User?>? _authSubscription;
+  final Completer<void> _initialAuthCompleter = Completer<void>();
 
   User? get user => _user;
   UserModel? get userModel => _userModel;
   bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _user != null;
+  Future<void> get initializationDone => _initialAuthCompleter.future;
 
-  AuthProvider() {
-    _authSubscription = _authService.authStateChanges.listen((user) async {
-      _user = user;
-      if (user != null) {
-        await _loadUserProfile(user.uid);
-        await _syncDeviceToken(user.uid);
+  AuthProvider({
+    AuthService? authService,
+    DatabaseService? databaseService,
+    NotificationService? notificationService,
+  })  : _authService = authService ?? AuthService(),
+        _databaseService = databaseService ?? DatabaseService(),
+        _notificationService = notificationService ?? NotificationService() {
+    _initializeAuth();
+  }
+
+  void _initializeAuth() {
+    try {
+      final initialUser = _authService.currentUser;
+      _user = initialUser;
+
+      _authSubscription = _authService.authStateChanges.listen((user) async {
+        _user = user;
+        if (user != null) {
+          await _loadUserProfile(user.uid);
+          await _syncDeviceToken(user.uid);
+        } else {
+          _userModel = null;
+        }
+        _isInitialized = true;
+        if (!_initialAuthCompleter.isCompleted) {
+          _initialAuthCompleter.complete();
+        }
+        notifyListeners();
+      }, onError: (e) {
+        debugPrint('Auth state change listener error: $e');
+        _isInitialized = true;
+        if (!_initialAuthCompleter.isCompleted) {
+          _initialAuthCompleter.complete();
+        }
+      });
+
+      if (initialUser != null) {
+        _loadUserProfile(initialUser.uid).then((_) {
+          _isInitialized = true;
+          if (!_initialAuthCompleter.isCompleted) {
+            _initialAuthCompleter.complete();
+          }
+          notifyListeners();
+        }).catchError((_) {
+          _isInitialized = true;
+          if (!_initialAuthCompleter.isCompleted) {
+            _initialAuthCompleter.complete();
+          }
+        });
       } else {
-        _userModel = null;
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (!_isInitialized) {
+            _isInitialized = true;
+            if (!_initialAuthCompleter.isCompleted) {
+              _initialAuthCompleter.complete();
+            }
+            notifyListeners();
+          }
+        });
       }
-      notifyListeners();
-    });
+    } catch (e) {
+      debugPrint('Auth initialization fallback: $e');
+      _isInitialized = true;
+      if (!_initialAuthCompleter.isCompleted) {
+        _initialAuthCompleter.complete();
+      }
+    }
+  }
+
+  Future<void> refreshProfile() async {
+    if (_user != null) {
+      await _loadUserProfile(_user!.uid);
+    }
   }
 
   void _setLoading(bool loading) {

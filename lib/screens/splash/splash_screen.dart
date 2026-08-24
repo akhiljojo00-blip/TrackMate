@@ -43,21 +43,41 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _controller.forward();
 
     _timer = Timer(const Duration(milliseconds: 2200), () {
-      if (mounted) {
-        _navigateToNext();
-      }
+      _checkAuthAndNavigate();
     });
   }
 
-  void _navigateToNext() {
+  Future<void> _checkAuthAndNavigate() async {
+    if (!mounted) return;
+
     final authProvider = context.read<AuthProvider>();
+
+    // If auth state is still resolving, wait briefly
+    if (!authProvider.isInitialized) {
+      await authProvider.initializationDone.timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
+    }
+
+    if (!mounted) return;
+
+    if (authProvider.isAuthenticated && authProvider.userModel == null) {
+      await authProvider.refreshProfile().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {},
+      );
+    }
+
+    if (!mounted) return;
+
     final targetWidget = authProvider.isAuthenticated
         ? const MapScreen()
         : const LoginScreen();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
+        transitionDuration: const Duration(milliseconds: 500),
         pageBuilder: (context, animation, secondaryAnimation) => targetWidget,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
