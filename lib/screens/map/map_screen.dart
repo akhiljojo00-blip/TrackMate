@@ -15,6 +15,8 @@ import '../../widgets/sos_button.dart';
 import '../../widgets/emergency_alert_dialog.dart';
 import '../../widgets/friends_map_sheet.dart';
 import '../../widgets/app_map_tile_layer.dart';
+import '../../widgets/connectivity_banner.dart';
+import '../../providers/connectivity_provider.dart';
 import '../chat/chat_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../connections/connections_screen.dart';
@@ -541,6 +543,7 @@ class _MapScreenState extends State<MapScreen> {
       final friendLoc = activeFriendLocations[friend.uid];
       if (friendLoc != null) {
         final distance = friendDistances[friend.uid];
+        final isStale = ConnectivityProvider.isTelemetryStale(friendLoc.timestamp);
         friendMarkers.add(
           Marker(
             point: LatLng(friendLoc.latitude, friendLoc.longitude),
@@ -551,6 +554,7 @@ class _MapScreenState extends State<MapScreen> {
               child: _FriendLocationMarker(
                 name: friend.name,
                 distanceText: distance != null ? LocationProvider.formatDistance(distance) : null,
+                isStale: isStale,
               ),
             ),
           ),
@@ -1035,6 +1039,14 @@ class _MapScreenState extends State<MapScreen> {
               onPressed: locationProvider.isLoading ? null : _handleToggleSharing,
             ),
           ),
+
+          // Non-blocking Offline Connectivity Banner
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ConnectivityBanner(),
+          ),
         ],
       ),
     );
@@ -1100,10 +1112,12 @@ class _UserLocationMarker extends StatelessWidget {
 class _FriendLocationMarker extends StatelessWidget {
   final String name;
   final String? distanceText;
+  final bool isStale;
 
   const _FriendLocationMarker({
     required this.name,
     this.distanceText,
+    this.isStale = false,
   });
 
   @override
@@ -1116,11 +1130,14 @@ class _FriendLocationMarker extends StatelessWidget {
           height: 38,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.purple.shade600,
-            border: Border.all(color: Colors.white, width: 2.5),
+            color: isStale ? Colors.amber.shade900 : Colors.purple.shade600,
+            border: Border.all(
+              color: isStale ? Colors.amber : Colors.white,
+              width: 2.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: isStale ? Colors.amber.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.35),
                 blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
@@ -1137,7 +1154,24 @@ class _FriendLocationMarker extends StatelessWidget {
             ),
           ),
         ),
-        if (distanceText != null)
+        if (isStale)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade900,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Signal Lost',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 8,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          )
+        else if (distanceText != null)
           Container(
             margin: const EdgeInsets.only(top: 2),
             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),

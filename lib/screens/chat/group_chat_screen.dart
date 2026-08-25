@@ -12,6 +12,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/database_service.dart';
 import '../map/group_map_screen.dart';
 import 'group_info_screen.dart';
+import '../../widgets/connectivity_banner.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final GroupModel group;
@@ -504,6 +505,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
           return Column(
             children: [
+              const ConnectivityBanner(),
               // Notice banner if removed from group
               if (isLoaded && !isMember)
                 Container(

@@ -8,6 +8,7 @@ import '../../models/message_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../widgets/full_screen_image_viewer.dart';
+import '../../widgets/connectivity_banner.dart';
 import '../map/map_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -237,6 +238,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         body: Column(
           children: [
+            const ConnectivityBanner(),
             if (chatProvider.chatError != null)
               Container(
                 width: double.infinity,

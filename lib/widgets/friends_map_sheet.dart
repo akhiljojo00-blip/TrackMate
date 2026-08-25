@@ -4,6 +4,7 @@ import '../constants/app_colors.dart';
 import '../models/connection_model.dart';
 import '../models/location_model.dart';
 import '../providers/location_provider.dart';
+import '../providers/connectivity_provider.dart';
 
 class FriendsMapSheet extends StatelessWidget {
   final List<ConnectionUser> connections;
@@ -72,7 +73,19 @@ class FriendsMapSheet extends StatelessWidget {
           final friend = connections[index];
           final friendLoc = activeFriendLocations[friend.uid];
           final isLive = friendLoc != null;
+          final isStale = isLive && ConnectivityProvider.isTelemetryStale(friendLoc.timestamp);
           final distance = friendDistances[friend.uid];
+
+          final String statusText;
+          if (!isLive) {
+            statusText = 'Location Off';
+          } else if (isStale) {
+            statusText = 'Signal Lost';
+          } else if (distance != null) {
+            statusText = 'Live • ${LocationProvider.formatDistance(distance)}';
+          } else {
+            statusText = 'Sharing Live';
+          }
 
           return Container(
             width: 210,
@@ -81,7 +94,9 @@ class FriendsMapSheet extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isLive
-                    ? AppColors.success.withValues(alpha: 0.4)
+                    ? (isStale
+                        ? Colors.amber.withValues(alpha: 0.6)
+                        : AppColors.success.withValues(alpha: 0.4))
                     : AppColors.cardBorderColor(context),
                 width: 1.2,
               ),
@@ -134,7 +149,9 @@ class FriendsMapSheet extends StatelessWidget {
                               height: 12,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isLive ? AppColors.success : Colors.grey.shade500,
+                                color: isLive
+                                    ? (isStale ? Colors.amber.shade900 : AppColors.success)
+                                    : Colors.grey.shade500,
                                 border: Border.all(
                                   color: AppColors.cardColor(context),
                                   width: 2,
@@ -164,15 +181,13 @@ class FriendsMapSheet extends StatelessWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              isLive
-                                  ? (distance != null
-                                      ? 'Live • ${LocationProvider.formatDistance(distance)}'
-                                      : 'Sharing Live')
-                                  : 'Location Off',
+                              statusText,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: isLive ? FontWeight.w600 : FontWeight.normal,
-                                color: isLive ? AppColors.success : AppColors.textSecondaryColor(context),
+                                color: !isLive
+                                    ? AppColors.textSecondaryColor(context)
+                                    : (isStale ? Colors.amber.shade900 : AppColors.success),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

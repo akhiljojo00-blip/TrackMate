@@ -32,12 +32,13 @@ void main() {
         ConnectionUser(uid: 'user2', name: 'Bob', username: 'bob', connectedAt: 123456),
       ];
 
+      final now = DateTime.now().millisecondsSinceEpoch;
       final Map<String, LocationModel> activeLocations = {
-        'user1': const LocationModel(
+        'user1': LocationModel(
           userId: 'user1',
           latitude: 12.9716,
           longitude: 77.5946,
-          timestamp: 123456,
+          timestamp: now,
         ),
       };
 

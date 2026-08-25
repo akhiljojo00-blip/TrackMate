@@ -970,6 +970,16 @@ class DatabaseService {
     });
   }
 
+  /// Listens to the Realtime Database connection status via '.info/connected'.
+  Stream<bool> listenToConnectionState() {
+    return _db.ref('.info/connected').onValue.map((event) {
+      if (event.snapshot.exists && event.snapshot.value == true) {
+        return true;
+      }
+      return false;
+    });
+  }
+
   // Reference Getters
   DatabaseReference get usersRef => _usersRef;
   DatabaseReference get userTokensRef => _userTokensRef;
