@@ -23,4 +23,5 @@ class AppConstants {
   static const String groupLiveLocationsPath = 'group_live_locations';
   static const String userGeofencesPath = 'user_geofences';
   static const String geofenceStatePath = 'geofence_state';
+  static const String usernamesPath = 'usernames';
 }

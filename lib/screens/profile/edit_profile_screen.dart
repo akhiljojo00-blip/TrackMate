@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/avatar_presets.dart';
 import '../../providers/auth_provider.dart';
@@ -16,6 +17,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
+  late final TextEditingController _usernameController;
   late final TextEditingController _bioController;
   late final TextEditingController _emergencyContactController;
   late int _selectedAvatarIndex;
@@ -25,6 +27,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.initState();
     final userModel = context.read<AuthProvider>().userModel;
     _nameController = TextEditingController(text: userModel?.name ?? '');
+    _usernameController = TextEditingController(text: userModel?.username ?? '');
     _bioController = TextEditingController(text: userModel?.bio ?? '');
     _emergencyContactController = TextEditingController(text: userModel?.emergencyContact ?? '');
     _selectedAvatarIndex = userModel?.avatarPresetIndex ?? 0;
@@ -33,6 +36,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _usernameController.dispose();
     _bioController.dispose();
     _emergencyContactController.dispose();
     super.dispose();
@@ -45,6 +49,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final authProvider = context.read<AuthProvider>();
     final success = await authProvider.updateProfile(
       name: _nameController.text,
+      username: _usernameController.text,
       bio: _bioController.text,
       emergencyContact: _emergencyContactController.text,
       avatarPresetIndex: _selectedAvatarIndex,
@@ -205,6 +210,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     }
                     if (value.trim().length > 30) {
                       return 'Display name cannot exceed 30 characters';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Username Field
+                CustomTextField(
+                  controller: _usernameController,
+                  labelText: 'Username',
+                  hintText: 'e.g. alex_hunter',
+                  prefixIcon: const Icon(Icons.alternate_email, color: AppColors.primary),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+                  ],
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Username cannot be empty';
+                    }
+                    final trimmed = value.trim();
+                    if (trimmed.length < 3) {
+                      return 'Username must be at least 3 characters';
+                    }
+                    if (trimmed.length > 30) {
+                      return 'Username cannot exceed 30 characters';
+                    }
+                    if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(trimmed)) {
+                      return 'Only letters, numbers, and underscores allowed';
                     }
                     return null;
                   },

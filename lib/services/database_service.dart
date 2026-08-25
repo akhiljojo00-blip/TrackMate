@@ -39,10 +39,77 @@ class DatabaseService {
   DatabaseReference get _groupLiveLocationsRef => _db.ref(AppConstants.groupLiveLocationsPath);
   DatabaseReference get _userGeofencesRef => _db.ref(AppConstants.userGeofencesPath);
   DatabaseReference get _geofenceStateRef => _db.ref(AppConstants.geofenceStatePath);
+  DatabaseReference get _usernamesRef => _db.ref(AppConstants.usernamesPath);
 
   // User Profile Methods
   Future<void> createUserProfile(UserModel user) async {
-    await _usersRef.child(user.uid).set(user.toMap());
+    final sanitizedUsername = user.username.trim().toLowerCase();
+    await _db.ref().update({
+      '${AppConstants.usersPath}/${user.uid}': user.toMap(),
+      '${AppConstants.usernamesPath}/$sanitizedUsername': user.uid,
+    });
+  }
+
+  /// Checks if a username is available in /usernames and /users index.
+  Future<bool> isUsernameAvailable(String username) async {
+    final sanitized = username.trim().toLowerCase();
+    if (sanitized.isEmpty || sanitized.length < 3) return false;
+
+    // Check direct reservation lookup
+    final snapshot = await _usernamesRef.child(sanitized).get();
+    if (snapshot.exists && snapshot.value != null) {
+      return false;
+    }
+
+    // Secondary fallback check on /users
+    try {
+      final userQuery = await _usersRef
+          .orderByChild('username')
+          .equalTo(sanitized)
+          .limitToFirst(1)
+          .get();
+      if (userQuery.exists && userQuery.value != null) {
+        return false;
+      }
+    } catch (_) {}
+
+    return true;
+  }
+
+  /// Performs an atomic multi-path update to release oldUsername and reserve newUsername.
+  Future<void> updateUsername({
+    required String uid,
+    required String oldUsername,
+    required String newUsername,
+  }) async {
+    final sanitizedNew = newUsername.trim().toLowerCase();
+    final sanitizedOld = oldUsername.trim().toLowerCase();
+
+    if (sanitizedNew == sanitizedOld) {
+      return;
+    }
+
+    if (sanitizedNew.length < 3) {
+      throw const FormatException('Username must be at least 3 characters long.');
+    }
+    if (!RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(sanitizedNew)) {
+      throw const FormatException('Username must be 3-30 characters (letters, numbers, underscores only).');
+    }
+
+    final available = await isUsernameAvailable(sanitizedNew);
+    if (!available) {
+      throw StateError('Username "@$sanitizedNew" is already taken.');
+    }
+
+    final Map<String, dynamic> updates = {
+      '${AppConstants.usernamesPath}/$sanitizedNew': uid,
+      '${AppConstants.usersPath}/$uid/username': sanitizedNew,
+    };
+    if (sanitizedOld.isNotEmpty) {
+      updates['${AppConstants.usernamesPath}/$sanitizedOld'] = null;
+    }
+
+    await _db.ref().update(updates);
   }
 
   Future<UserModel?> getUserProfile(String uid) async {

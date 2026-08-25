@@ -255,8 +255,53 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateUsername(String newUsername) async {
+    if (_user == null) return false;
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      final sanitizedNew = newUsername.trim().toLowerCase();
+      final currentUsername = _userModel?.username ?? '';
+
+      if (sanitizedNew == currentUsername) {
+        _setLoading(false);
+        return true;
+      }
+
+      await _databaseService.updateUsername(
+        uid: _user!.uid,
+        oldUsername: currentUsername,
+        newUsername: sanitizedNew,
+      );
+
+      if (_userModel != null) {
+        _userModel = _userModel!.copyWith(username: sanitizedNew);
+      } else {
+        await _loadUserProfile(_user!.uid);
+      }
+
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } on FormatException catch (e) {
+      _errorMessage = e.message;
+      _setLoading(false);
+      return false;
+    } on StateError catch (e) {
+      _errorMessage = e.message;
+      _setLoading(false);
+      return false;
+    } catch (e) {
+      _errorMessage = 'Failed to update username: ${e.toString()}';
+      _setLoading(false);
+      return false;
+    }
+  }
+
   Future<bool> updateProfile({
     required String name,
+    String? username,
     String? bio,
     String? emergencyContact,
     int? avatarPresetIndex,
@@ -271,6 +316,18 @@ class AuthProvider extends ChangeNotifier {
         _errorMessage = 'Name cannot be empty';
         _setLoading(false);
         return false;
+      }
+
+      // If username changed, perform atomic swap check
+      if (username != null) {
+        final sanitizedUsername = username.trim().toLowerCase();
+        if (sanitizedUsername.isNotEmpty && sanitizedUsername != _userModel?.username.toLowerCase()) {
+          final usernameSuccess = await updateUsername(sanitizedUsername);
+          if (!usernameSuccess) {
+            // Error message already set by updateUsername
+            return false;
+          }
+        }
       }
 
       final updates = <String, dynamic>{
