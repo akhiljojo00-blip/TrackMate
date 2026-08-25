@@ -41,6 +41,8 @@ class GeofenceService {
       StreamController<GeofenceTriggerEvent>.broadcast();
 
   Stream<GeofenceTriggerEvent> get onGeofenceTrigger => _triggerEventController.stream;
+  int get activeGeofenceCount => _cachedGeofences.where((g) => g.isEnabled).length;
+  List<GeofenceModel> get cachedGeofences => List.unmodifiable(_cachedGeofences);
 
   GeofenceService._internal({
     DatabaseService? databaseService,

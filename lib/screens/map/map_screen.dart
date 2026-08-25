@@ -22,6 +22,7 @@ import '../chat/chat_list_screen.dart';
 import '../connections/connections_screen.dart';
 import '../profile/profile_screen.dart';
 import '../geofence/geofence_list_screen.dart';
+import '../diagnostics/diagnostics_screen.dart';
 import '../auth/login_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -725,6 +726,19 @@ class _MapScreenState extends State<MapScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const GeofenceListScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.analytics_outlined),
+              title: const Text('Diagnostics & Telemetry'),
+              subtitle: const Text('GPS, battery & privacy stats'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const DiagnosticsScreen(),
                   ),
                 );
               },

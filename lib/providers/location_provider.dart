@@ -21,6 +21,11 @@ class LocationProvider extends ChangeNotifier {
   String? _locationError;
   DateTime? _lastSyncTime;
 
+  // In-Memory Diagnostics & Telemetry
+  int _rawFixCount = 0;
+  int _syncDispatchCount = 0;
+  DateTime? _trackingStartTime;
+
   StreamSubscription<Position>? _positionSubscription;
 
   // Multi-friend location & permission tracking
@@ -38,6 +43,17 @@ class LocationProvider extends ChangeNotifier {
   bool get isTracking => _isTracking;
   bool get isLoading => _isLoading;
   String? get locationError => _locationError;
+
+  // Diagnostics Getters
+  int get rawFixCount => _rawFixCount;
+  int get syncDispatchCount => _syncDispatchCount;
+  DateTime? get trackingStartTime => _trackingStartTime;
+  Duration? get trackingDuration => _trackingStartTime != null
+      ? DateTime.now().difference(_trackingStartTime!)
+      : null;
+  double get throttlingSavingsPercent => _rawFixCount > 0
+      ? ((_rawFixCount - _syncDispatchCount) / _rawFixCount * 100).clamp(0.0, 100.0)
+      : 0.0;
 
   Map<String, LocationModel> get activeFriendLocations => Map.unmodifiable(_activeFriendLocations);
   Map<String, double> get friendDistances => Map.unmodifiable(_friendDistances);
@@ -106,6 +122,10 @@ class LocationProvider extends ChangeNotifier {
     }
 
     try {
+      _trackingStartTime = DateTime.now();
+      _rawFixCount = 0;
+      _syncDispatchCount = 0;
+
       _geofenceService.initializeForUser(uid);
       final position = await _locationService.getCurrentPosition();
       if (position != null) {
@@ -121,6 +141,8 @@ class LocationProvider extends ChangeNotifier {
         );
 
         // Update database with explicit consent
+        _rawFixCount++;
+        _syncDispatchCount++;
         await _databaseService.updateLocationSharingConsent(uid, true);
         await _databaseService.updateUserLocation(uid, _currentLocationModel!);
         _lastSyncTime = DateTime.now();
@@ -141,6 +163,7 @@ class LocationProvider extends ChangeNotifier {
       _positionSubscription?.cancel();
       _positionSubscription = _locationService.getPositionStream(distanceFilter: 5).listen(
         (position) async {
+          _rawFixCount++;
           _currentPosition = position;
           _currentLocationModel = LocationModel(
             userId: uid,
@@ -166,6 +189,7 @@ class LocationProvider extends ChangeNotifier {
           final now = DateTime.now();
           if (_lastSyncTime == null || now.difference(_lastSyncTime!).inSeconds >= 3) {
             _lastSyncTime = now;
+            _syncDispatchCount++;
             await _databaseService.updateUserLocation(uid, _currentLocationModel!);
           }
         },
@@ -193,6 +217,7 @@ class LocationProvider extends ChangeNotifier {
       _positionSubscription = null;
       _isTracking = false;
       _lastSyncTime = null;
+      _trackingStartTime = null;
 
       // Update database to reflect consent revoked and remove active coordinates
       await _databaseService.updateLocationSharingConsent(uid, false);
@@ -328,6 +353,18 @@ class LocationProvider extends ChangeNotifier {
     _activeFriendLocations.clear();
     _friendDistances.clear();
     _outboundPermissions.clear();
+    notifyListeners();
+  }
+
+  @visibleForTesting
+  void setDiagnosticsForTesting({
+    int rawFixCount = 0,
+    int syncDispatchCount = 0,
+    DateTime? trackingStartTime,
+  }) {
+    _rawFixCount = rawFixCount;
+    _syncDispatchCount = syncDispatchCount;
+    _trackingStartTime = trackingStartTime;
     notifyListeners();
   }
 
