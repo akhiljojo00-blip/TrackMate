@@ -135,21 +135,21 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'No Safe Zones Yet',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryColor(context),
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Create custom geofenced areas (like Home, School, or Gym) and automatically notify loved ones when you enter or leave.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 13,
-                        color: AppColors.textSecondary,
+                        color: AppColors.textSecondaryColor(context),
                         height: 1.4,
                       ),
                     ),
@@ -181,12 +181,12 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
 
               return Container(
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.cardColor(context),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: geofence.isEnabled
-                        ? AppColors.primary.withValues(alpha: 0.25)
-                        : Colors.grey.shade200,
+                        ? AppColors.primary.withValues(alpha: 0.35)
+                        : AppColors.cardBorderColor(context),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -233,15 +233,15 @@ class _GeofenceListScreenState extends State<GeofenceListScreen> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 15,
-                                    color: geofence.isEnabled ? AppColors.textPrimary : AppColors.textSecondary,
+                                    color: geofence.isEnabled ? AppColors.textPrimaryColor(context) : AppColors.textSecondaryColor(context),
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${geofence.radiusMeters.round()}m radius',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.textSecondaryColor(context),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),

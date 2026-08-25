@@ -543,7 +543,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: AppColors.surface,
+                          color: AppColors.cardColor(context),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                           boxShadow: [
@@ -730,13 +730,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                             decoration: BoxDecoration(
-                              color: isMe ? AppColors.primary : AppColors.surface,
+                              color: isMe ? AppColors.primary : AppColors.cardColor(context),
                               borderRadius: BorderRadius.only(
                                 topLeft: const Radius.circular(16),
                                 topRight: const Radius.circular(16),
                                 bottomLeft: Radius.circular(isMe ? 16 : 4),
                                 bottomRight: Radius.circular(isMe ? 4 : 16),
                               ),
+                              border: isMe ? null : Border.all(color: AppColors.cardBorderColor(context)),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.04),
@@ -780,7 +781,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                 Text(
                                   message.text,
                                   style: TextStyle(
-                                    color: isMe ? Colors.white : AppColors.textPrimary,
+                                    color: isMe ? Colors.white : AppColors.textPrimaryColor(context),
                                     fontSize: 14,
                                   ),
                                 ),
@@ -788,7 +789,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                 Text(
                                   timeStr,
                                   style: TextStyle(
-                                    color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondary,
+                                    color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondaryColor(context),
                                     fontSize: 9,
                                   ),
                                 ),
@@ -806,7 +807,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: AppColors.cardColor(context),
+                  border: Border(top: BorderSide(color: AppColors.cardBorderColor(context))),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -823,19 +825,28 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               child: TextField(
                                 controller: _messageController,
                                 textCapitalization: TextCapitalization.sentences,
+                                style: TextStyle(color: AppColors.textPrimaryColor(context)),
                                 maxLines: 4,
                                 minLines: 1,
                                 maxLength: 2000,
                                 buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                 decoration: InputDecoration(
                                   hintText: 'Message group...',
-                                  hintStyle: const TextStyle(color: AppColors.textSecondary),
+                                  hintStyle: TextStyle(color: AppColors.textSecondaryColor(context)),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(24),
-                                    borderSide: BorderSide.none,
+                                    borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(24),
+                                    borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                                   ),
                                   filled: true,
-                                  fillColor: AppColors.background,
+                                  fillColor: AppColors.inputFillColor(context),
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 ),
                                 onSubmitted: (_) => _handleSendMessage(),

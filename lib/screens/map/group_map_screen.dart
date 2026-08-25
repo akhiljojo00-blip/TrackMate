@@ -15,6 +15,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../services/database_service.dart';
 import '../../services/location_service.dart';
+import '../../widgets/app_map_tile_layer.dart';
 
 class GroupMapScreen extends StatefulWidget {
   final GroupModel group;
@@ -343,10 +344,7 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                           initialZoom: 15.0,
                         ),
                         children: [
-                          TileLayer(
-                            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.trackmate.app',
-                          ),
+                          const AppMapTileLayer(),
                           MarkerLayer(markers: markers),
                         ],
                       );
@@ -373,7 +371,7 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                         if (points.isNotEmpty) ...[
                           FloatingActionButton.small(
                             heroTag: 'group_autofit_fab',
-                            backgroundColor: AppColors.surface,
+                            backgroundColor: AppColors.cardColor(context),
                             foregroundColor: AppColors.primary,
                             tooltip: 'Fit all members on map',
                             onPressed: () => _fitAllParticipants(points),
@@ -383,7 +381,7 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                         ],
                         FloatingActionButton.small(
                           heroTag: 'group_recenter_fab',
-                          backgroundColor: AppColors.surface,
+                          backgroundColor: AppColors.cardColor(context),
                           foregroundColor: AppColors.primary,
                           tooltip: 'Recenter on my location',
                           onPressed: _recenterOnUser,
@@ -443,12 +441,12 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: AppColors.surface,
+                                          color: AppColors.cardColor(context),
                                           borderRadius: BorderRadius.circular(16),
                                           border: Border.all(
                                             color: isMe
                                                 ? AppColors.primary
-                                                : (isStale ? Colors.amber : Colors.grey.shade300),
+                                                : (isStale ? Colors.amber : AppColors.cardBorderColor(context)),
                                             width: isMe ? 1.5 : 1.0,
                                           ),
                                           boxShadow: [
@@ -484,13 +482,17 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                                               children: [
                                                 Text(
                                                   isMe ? 'You' : p.displayName,
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                    color: AppColors.textPrimaryColor(context),
+                                                  ),
                                                 ),
                                                 Text(
                                                   timeStr,
                                                   style: TextStyle(
                                                     fontSize: 9,
-                                                    color: isStale ? Colors.amber.shade900 : AppColors.textSecondary,
+                                                    color: isStale ? Colors.amber.shade900 : AppColors.textSecondaryColor(context),
                                                     fontWeight: isStale ? FontWeight.bold : FontWeight.normal,
                                                   ),
                                                 ),
@@ -530,8 +532,9 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                 decoration: BoxDecoration(
-                                  color: AppColors.surface,
+                                  color: AppColors.cardColor(context),
                                   borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: AppColors.cardBorderColor(context)),
                                   boxShadow: [
                                     BoxShadow(
                                       color: Colors.black.withValues(alpha: 0.1),

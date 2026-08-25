@@ -31,8 +31,9 @@ class FriendsMapSheet extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: AppColors.surface.withValues(alpha: 0.92),
+          color: AppColors.cardColor(context).withValues(alpha: 0.92),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.cardBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.12),
@@ -41,15 +42,15 @@ class FriendsMapSheet extends StatelessWidget {
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.people_outline, color: AppColors.textSecondary, size: 22),
-            SizedBox(width: 12),
+            Icon(Icons.people_outline, color: AppColors.textSecondaryColor(context), size: 22),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'No connections yet • Add friends in Connections tab',
                 style: TextStyle(
-                  color: AppColors.textSecondary,
+                  color: AppColors.textSecondaryColor(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -76,12 +77,12 @@ class FriendsMapSheet extends StatelessWidget {
           return Container(
             width: 210,
             decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.95),
+              color: AppColors.cardColor(context).withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isLive
                     ? AppColors.success.withValues(alpha: 0.4)
-                    : Colors.grey.withValues(alpha: 0.2),
+                    : AppColors.cardBorderColor(context),
                 width: 1.2,
               ),
               boxShadow: [
@@ -107,27 +108,21 @@ class FriendsMapSheet extends StatelessWidget {
                   }
                 },
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   child: Row(
                     children: [
-                      // Avatar with Live indicator badge
+                      // Avatar with online status indicator
                       Stack(
                         children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: isLive ? Colors.purple.shade600 : Colors.grey.shade400,
-                            ),
-                            child: Center(
-                              child: Text(
-                                friend.name.isNotEmpty ? friend.name[0].toUpperCase() : 'U',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                            child: Text(
+                              friend.name.isNotEmpty ? friend.name[0].toUpperCase() : 'U',
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
                               ),
                             ),
                           ),
@@ -140,7 +135,10 @@ class FriendsMapSheet extends StatelessWidget {
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 color: isLive ? AppColors.success : Colors.grey.shade500,
-                                border: Border.all(color: Colors.white, width: 2),
+                                border: Border.all(
+                                  color: AppColors.cardColor(context),
+                                  width: 2,
+                                ),
                               ),
                             ),
                           ),
@@ -156,10 +154,10 @@ class FriendsMapSheet extends StatelessWidget {
                           children: [
                             Text(
                               friend.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: AppColors.textPrimary,
+                                color: AppColors.textPrimaryColor(context),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -174,7 +172,7 @@ class FriendsMapSheet extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: isLive ? FontWeight.w600 : FontWeight.normal,
-                                color: isLive ? AppColors.success : AppColors.textSecondary,
+                                color: isLive ? AppColors.success : AppColors.textSecondaryColor(context),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

@@ -14,6 +14,7 @@ import '../../models/sos_alert_model.dart';
 import '../../widgets/sos_button.dart';
 import '../../widgets/emergency_alert_dialog.dart';
 import '../../widgets/friends_map_sheet.dart';
+import '../../widgets/app_map_tile_layer.dart';
 import '../chat/chat_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../connections/connections_screen.dart';
@@ -217,7 +218,7 @@ class _MapScreenState extends State<MapScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.background,
+                    color: AppColors.backgroundColor(context),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -770,10 +771,7 @@ class _MapScreenState extends State<MapScreen> {
               initialZoom: 14.0,
             ),
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.trackmate.app',
-              ),
+              const AppMapTileLayer(),
               MarkerLayer(
                 markers: [
                   if (widget.initialFocusLocation != null)
@@ -962,8 +960,8 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 172,
             child: FloatingActionButton.small(
               heroTag: 'recenter_fab',
-              backgroundColor: AppColors.surface,
-              foregroundColor: AppColors.textPrimary,
+              backgroundColor: AppColors.cardColor(context),
+              foregroundColor: AppColors.textPrimaryColor(context),
               onPressed: _recenterOnUser,
               tooltip: 'My Location',
               child: const Icon(Icons.my_location),

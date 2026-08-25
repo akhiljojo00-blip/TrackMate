@@ -300,7 +300,8 @@ class _ChatScreenState extends State<ChatScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.cardColor(context),
+        border: Border(top: BorderSide(color: AppColors.cardBorderColor(context))),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -333,7 +334,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         chatProvider.uploadProgress > 0
                             ? 'Uploading photo ${(chatProvider.uploadProgress * 100).toInt()}%...'
                             : 'Preparing photo...',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondaryColor(context)),
                       ),
                     ),
                   ],
@@ -342,11 +343,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
             // Location acquisition banner
             if (chatProvider.isAcquiringLocation)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8.0, left: 4.0, right: 4.0),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0, left: 4.0, right: 4.0),
                 child: Row(
                   children: [
-                    SizedBox(
+                    const SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
@@ -354,11 +355,11 @@ class _ChatScreenState extends State<ChatScreen> {
                         color: Color(0xFFE91E63),
                       ),
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Acquiring current GPS location...',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondaryColor(context)),
                       ),
                     ),
                   ],
@@ -377,17 +378,26 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     textCapitalization: TextCapitalization.sentences,
+                    style: TextStyle(color: AppColors.textPrimaryColor(context)),
                     maxLines: 4,
                     minLines: 1,
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      hintStyle: const TextStyle(color: AppColors.textSecondary),
+                      hintStyle: TextStyle(color: AppColors.textSecondaryColor(context)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide.none,
+                        borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(24),
+                        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                       ),
                       filled: true,
-                      fillColor: AppColors.background,
+                      fillColor: AppColors.inputFillColor(context),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
                     onSubmitted: (_) => _handleSendMessage(),
@@ -446,13 +456,14 @@ class _MessageBubble extends StatelessWidget {
             ? const EdgeInsets.all(6)
             : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : AppColors.surface,
+          color: isMe ? AppColors.primary : AppColors.cardColor(context),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
             bottomLeft: Radius.circular(isMe ? 16 : 4),
             bottomRight: Radius.circular(isMe ? 4 : 16),
           ),
+          border: isMe ? null : Border.all(color: AppColors.cardBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -537,7 +548,7 @@ class _MessageBubble extends StatelessWidget {
                 width: 230,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isMe ? Colors.white.withValues(alpha: 0.15) : AppColors.background,
+                  color: isMe ? Colors.white.withValues(alpha: 0.15) : AppColors.backgroundColor(context),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -567,14 +578,14 @@ class _MessageBubble extends StatelessWidget {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: isMe ? Colors.white : AppColors.textPrimary,
+                                  color: isMe ? Colors.white : AppColors.textPrimaryColor(context),
                                 ),
                               ),
                               Text(
                                 'One-time GPS snapshot',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isMe ? Colors.white70 : AppColors.textSecondary,
+                                  color: isMe ? Colors.white70 : AppColors.textSecondaryColor(context),
                                 ),
                               ),
                             ],
@@ -631,7 +642,7 @@ class _MessageBubble extends StatelessWidget {
                 child: Text(
                   message.text,
                   style: TextStyle(
-                    color: isMe ? Colors.white : AppColors.textPrimary,
+                    color: isMe ? Colors.white : AppColors.textPrimaryColor(context),
                     fontSize: 15,
                   ),
                 ),
@@ -645,7 +656,7 @@ class _MessageBubble extends StatelessWidget {
               child: Text(
                 timeStr,
                 style: TextStyle(
-                  color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondary,
+                  color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondaryColor(context),
                   fontSize: 10,
                 ),
               ),

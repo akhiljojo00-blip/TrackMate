@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../services/database_service.dart';
+import '../../widgets/app_map_tile_layer.dart';
 
 class CreateEditGeofenceScreen extends StatefulWidget {
   final GeofenceModel? existingGeofence;
@@ -177,7 +178,7 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
               height: 240,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppColors.cardBorderColor(context)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -201,10 +202,7 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
                       },
                     ),
                     children: [
-                      TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        userAgentPackageName: 'com.trackmate.app',
-                      ),
+                      const AppMapTileLayer(),
                       CircleLayer(
                         circles: [
                           CircleMarker(
@@ -262,9 +260,9 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
                     bottom: 8,
                     left: 12,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.black87,
+                        color: Colors.black.withValues(alpha: 0.75),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Text(
@@ -282,9 +280,9 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.cardColor(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: AppColors.cardBorderColor(context)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,9 +290,13 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Safe Zone Radius',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppColors.textPrimaryColor(context),
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -332,21 +334,25 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.cardColor(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: AppColors.cardBorderColor(context)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextFormField(
                     controller: _nameController,
+                    style: TextStyle(color: AppColors.textPrimaryColor(context)),
                     decoration: InputDecoration(
                       labelText: 'Safe Zone Name',
                       hintText: 'e.g. Home, Campus, Office',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                      ),
                       filled: true,
-                      fillColor: AppColors.background,
+                      fillColor: AppColors.inputFillColor(context),
                     ),
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
@@ -445,21 +451,25 @@ class _CreateEditGeofenceScreenState extends State<CreateEditGeofenceScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AppColors.cardColor(context),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: AppColors.cardBorderColor(context)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Alert Recipients',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppColors.textPrimaryColor(context),
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Select friends and groups who should be notified when you enter or leave this zone.',
-                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    style: TextStyle(fontSize: 11, color: AppColors.textSecondaryColor(context)),
                   ),
                   const SizedBox(height: 14),
 
