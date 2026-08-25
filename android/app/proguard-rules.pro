@@ -22,4 +22,6 @@
 
 # General ProGuard Keep
 -dontwarn javax.annotation.**
+-dontwarn kotlinx.coroutines.**
+-dontwarn java.lang.invoke.**
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
