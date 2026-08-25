@@ -218,20 +218,35 @@ class DatabaseService {
     required UserModel sender,
     required String targetUid,
   }) async {
-    if (sender.uid == targetUid) return;
+    final trimmedTargetUid = targetUid.trim();
+    final trimmedSenderUid = sender.uid.trim();
+
+    if (trimmedSenderUid.isEmpty || trimmedTargetUid.isEmpty) {
+      throw ArgumentError('Cannot send connection request: sender or target UID is empty.');
+    }
+    if (trimmedSenderUid == trimmedTargetUid) {
+      throw ArgumentError('Cannot send connection request to yourself.');
+    }
+
+    final senderName = sender.name.trim().isNotEmpty
+        ? sender.name.trim()
+        : (sender.username.trim().isNotEmpty ? sender.username.trim() : 'User');
+    final senderUsername = sender.username.trim().isNotEmpty
+        ? sender.username.trim().toLowerCase()
+        : (sender.name.trim().isNotEmpty ? sender.name.trim().toLowerCase() : 'user');
 
     final request = ConnectionRequestModel(
-      senderUid: sender.uid,
-      senderName: sender.name,
-      senderUsername: sender.username,
-      receiverUid: targetUid,
+      senderUid: trimmedSenderUid,
+      senderName: senderName,
+      senderUsername: senderUsername,
+      receiverUid: trimmedTargetUid,
       timestamp: DateTime.now().millisecondsSinceEpoch,
       status: 'pending',
     );
 
     final Map<String, dynamic> updates = {
-      '${AppConstants.connectionRequestsPath}/$targetUid/${sender.uid}': request.toMap(),
-      '${AppConstants.sentRequestsPath}/${sender.uid}/$targetUid': request.toMap(),
+      '${AppConstants.connectionRequestsPath}/$trimmedTargetUid/$trimmedSenderUid': request.toMap(),
+      '${AppConstants.sentRequestsPath}/$trimmedSenderUid/$trimmedTargetUid': request.toMap(),
     };
 
     await _db.ref().update(updates);

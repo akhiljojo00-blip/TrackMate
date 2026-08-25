@@ -213,12 +213,21 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                         )
                       : isPending
                           ? OutlinedButton(
-                              onPressed: () {
+                              onPressed: () async {
                                 if (currentUser != null) {
-                                  connectionProvider.cancelSentRequest(
+                                  final success = await connectionProvider.cancelSentRequest(
                                     currentUid: currentUser.uid,
                                     targetUid: targetUser.uid,
                                   );
+                                  if (!context.mounted) return;
+                                  if (success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Cancelled request to ${targetUser.name}.'),
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                  }
                                 }
                               },
                               child: const Text('Requested'),
@@ -227,10 +236,42 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                               icon: const Icon(Icons.person_add, size: 16),
                               label: const Text('Connect'),
                               onPressed: () async {
-                                if (currentUser != null) {
-                                  await connectionProvider.sendRequest(
-                                    sender: currentUser,
-                                    targetUid: targetUser.uid,
+                                if (currentUser == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Profile loading. Please try again in a moment.'),
+                                      backgroundColor: AppColors.error,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                final success = await connectionProvider.sendRequest(
+                                  sender: currentUser,
+                                  targetUid: targetUser.uid,
+                                );
+
+                                if (!context.mounted) return;
+
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Connection request sent to ${targetUser.name}!'),
+                                      backgroundColor: AppColors.success,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        connectionProvider.actionError ??
+                                            'Failed to send connection request. Please try again.',
+                                      ),
+                                      backgroundColor: AppColors.error,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
                                   );
                                 }
                               },
@@ -334,10 +375,19 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                 );
 
                 if (confirm == true) {
-                  await connectionProvider.removeFriend(
+                  final success = await connectionProvider.removeFriend(
                     currentUid: currentUid,
                     targetUid: friend.uid,
                   );
+                  if (!context.mounted) return;
+                  if (success) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Removed ${friend.name} from friends.'),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
                 }
               }
             },
@@ -421,10 +471,28 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                 tooltip: 'Accept',
                 onPressed: () async {
                   if (currentUser != null) {
-                    await connectionProvider.acceptRequest(
+                    final success = await connectionProvider.acceptRequest(
                       currentUser: currentUser,
                       request: request,
                     );
+                    if (!context.mounted) return;
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Connected with ${request.senderName}!'),
+                          backgroundColor: AppColors.success,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(connectionProvider.actionError ?? 'Failed to accept connection request.'),
+                          backgroundColor: AppColors.error,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                   }
                 },
               ),
@@ -433,10 +501,19 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
                 tooltip: 'Decline',
                 onPressed: () async {
                   if (currentUser != null) {
-                    await connectionProvider.declineRequest(
+                    final success = await connectionProvider.declineRequest(
                       currentUser: currentUser,
                       request: request,
                     );
+                    if (!context.mounted) return;
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Declined request from ${request.senderName}.'),
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    }
                   }
                 },
               ),

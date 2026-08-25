@@ -13,6 +13,12 @@
         ".write": "auth != null && auth.uid === $uid"
       }
     },
+    "usernames": {
+      ".read": true,
+      "$username": {
+        ".write": "auth != null"
+      }
+    },
     "connection_requests": {
       "$receiverUid": {
         ".read": "auth != null && auth.uid === $receiverUid",

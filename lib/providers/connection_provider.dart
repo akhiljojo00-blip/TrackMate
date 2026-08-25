@@ -21,6 +21,7 @@ class ConnectionProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSearching = false;
   String? _searchError;
+  String? _actionError;
   String? _currentUid;
 
   StreamSubscription<List<ConnectionUser>>? _connectionsSub;
@@ -34,6 +35,7 @@ class ConnectionProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isSearching => _isSearching;
   String? get searchError => _searchError;
+  String? get actionError => _actionError;
   String? get currentUid => _currentUid;
 
   void initializeForUser(String uid) {
@@ -121,6 +123,7 @@ class ConnectionProvider extends ChangeNotifier {
     _isFirstConnectionsLoad = true;
     _isSearching = false;
     _searchError = null;
+    _actionError = null;
     notifyListeners();
   }
 
@@ -186,17 +189,43 @@ class ConnectionProvider extends ChangeNotifier {
     required UserModel sender,
     required String targetUid,
   }) async {
+    _actionError = null;
+    final trimmedTargetUid = targetUid.trim();
+    final trimmedSenderUid = sender.uid.trim();
+
+    if (trimmedSenderUid.isEmpty || trimmedTargetUid.isEmpty) {
+      _actionError = 'Invalid sender or target user ID.';
+      notifyListeners();
+      return false;
+    }
+    if (trimmedSenderUid == trimmedTargetUid) {
+      _actionError = 'You cannot send a connection request to yourself.';
+      notifyListeners();
+      return false;
+    }
+    if (isConnectedWith(trimmedTargetUid)) {
+      _actionError = 'You are already connected with this user.';
+      notifyListeners();
+      return false;
+    }
+    if (isRequestPending(trimmedTargetUid)) {
+      _actionError = 'A connection request is already pending.';
+      notifyListeners();
+      return false;
+    }
+
     try {
-      _pendingSentTargetUids.add(targetUid);
+      _pendingSentTargetUids.add(trimmedTargetUid);
       notifyListeners();
 
       await _databaseService.sendConnectionRequest(
         sender: sender,
-        targetUid: targetUid,
+        targetUid: trimmedTargetUid,
       );
       return true;
     } catch (e) {
-      _pendingSentTargetUids.remove(targetUid);
+      _pendingSentTargetUids.remove(trimmedTargetUid);
+      _actionError = 'Failed to send request: ${e.toString()}';
       notifyListeners();
       debugPrint('Error sending connection request: $e');
       return false;
@@ -207,6 +236,7 @@ class ConnectionProvider extends ChangeNotifier {
     required UserModel currentUser,
     required ConnectionRequestModel request,
   }) async {
+    _actionError = null;
     _setLoading(true);
     try {
       await _databaseService.respondToConnectionRequest(
@@ -216,6 +246,7 @@ class ConnectionProvider extends ChangeNotifier {
       );
       return true;
     } catch (e) {
+      _actionError = 'Failed to accept request: ${e.toString()}';
       debugPrint('Error accepting request: $e');
       return false;
     } finally {
@@ -227,6 +258,7 @@ class ConnectionProvider extends ChangeNotifier {
     required UserModel currentUser,
     required ConnectionRequestModel request,
   }) async {
+    _actionError = null;
     _setLoading(true);
     try {
       await _databaseService.respondToConnectionRequest(
@@ -236,6 +268,7 @@ class ConnectionProvider extends ChangeNotifier {
       );
       return true;
     } catch (e) {
+      _actionError = 'Failed to decline request: ${e.toString()}';
       debugPrint('Error declining request: $e');
       return false;
     } finally {
@@ -247,6 +280,7 @@ class ConnectionProvider extends ChangeNotifier {
     required String currentUid,
     required String targetUid,
   }) async {
+    _actionError = null;
     _setLoading(true);
     try {
       await _databaseService.cancelSentRequest(
@@ -257,6 +291,7 @@ class ConnectionProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
+      _actionError = 'Failed to cancel request: ${e.toString()}';
       debugPrint('Error canceling sent request: $e');
       return false;
     } finally {
@@ -268,11 +303,13 @@ class ConnectionProvider extends ChangeNotifier {
     required String currentUid,
     required String targetUid,
   }) async {
+    _actionError = null;
     _setLoading(true);
     try {
       await _databaseService.removeConnection(currentUid, targetUid);
       return true;
     } catch (e) {
+      _actionError = 'Failed to remove connection: ${e.toString()}';
       debugPrint('Error removing friend: $e');
       return false;
     } finally {
