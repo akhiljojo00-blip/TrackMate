@@ -1,4 +1,16 @@
 class LocationModel {
+  static const String modeWalking = 'walking';
+  static const String modeBiking = 'biking';
+  static const String modeCar = 'car';
+  static const String modeBus = 'bus';
+
+  static const List<String> supportedTravelModes = [
+    modeWalking,
+    modeBiking,
+    modeCar,
+    modeBus,
+  ];
+
   final String userId;
   final double latitude;
   final double longitude;
@@ -6,6 +18,7 @@ class LocationModel {
   final double? speed;
   final double? accuracy;
   final int timestamp; // epoch milliseconds
+  final String travelMode;
 
   const LocationModel({
     required this.userId,
@@ -15,6 +28,7 @@ class LocationModel {
     this.speed,
     this.accuracy,
     required this.timestamp,
+    this.travelMode = modeWalking,
   });
 
   Map<String, dynamic> toMap() {
@@ -26,6 +40,7 @@ class LocationModel {
       'speed': speed,
       'accuracy': accuracy,
       'timestamp': timestamp,
+      'travelMode': travelMode,
     };
   }
 
@@ -41,6 +56,11 @@ class LocationModel {
       parsedTimestamp = DateTime.now().millisecondsSinceEpoch;
     }
 
+    final rawMode = map['travelMode'] as String?;
+    final mode = (rawMode != null && supportedTravelModes.contains(rawMode))
+        ? rawMode
+        : modeWalking;
+
     return LocationModel(
       userId: userId,
       latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
@@ -49,6 +69,7 @@ class LocationModel {
       speed: (map['speed'] as num?)?.toDouble(),
       accuracy: (map['accuracy'] as num?)?.toDouble(),
       timestamp: parsedTimestamp,
+      travelMode: mode,
     );
   }
 
@@ -60,6 +81,7 @@ class LocationModel {
     double? speed,
     double? accuracy,
     int? timestamp,
+    String? travelMode,
   }) {
     return LocationModel(
       userId: userId ?? this.userId,
@@ -69,6 +91,7 @@ class LocationModel {
       speed: speed ?? this.speed,
       accuracy: accuracy ?? this.accuracy,
       timestamp: timestamp ?? this.timestamp,
+      travelMode: travelMode ?? this.travelMode,
     );
   }
 }

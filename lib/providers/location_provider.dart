@@ -37,12 +37,31 @@ class LocationProvider extends ChangeNotifier {
   final Map<String, StreamSubscription<LocationModel?>> _friendLocationSubs = {};
   final Map<String, StreamSubscription<bool>> _outboundPermissionSubs = {};
 
+  String _selectedTravelMode = LocationModel.modeWalking;
+
   Position? get currentPosition => _currentPosition;
   LocationModel? get currentLocationModel => _currentLocationModel;
   bool get hasPermission => _hasPermission;
   bool get isTracking => _isTracking;
   bool get isLoading => _isLoading;
   String? get locationError => _locationError;
+  String get selectedTravelMode => _selectedTravelMode;
+
+  Future<void> setTravelMode(String mode, {String? uid}) async {
+    if (!LocationModel.supportedTravelModes.contains(mode)) return;
+    _selectedTravelMode = mode;
+    if (_currentLocationModel != null) {
+      _currentLocationModel = _currentLocationModel!.copyWith(travelMode: mode);
+    }
+    if (_isTracking && uid != null && _currentLocationModel != null) {
+      try {
+        await _databaseService.updateUserLocation(uid, _currentLocationModel!);
+      } catch (e) {
+        debugPrint('Error syncing travel mode to database: $e');
+      }
+    }
+    notifyListeners();
+  }
 
   // Diagnostics Getters
   int get rawFixCount => _rawFixCount;
@@ -159,6 +178,7 @@ class LocationProvider extends ChangeNotifier {
           speed: position.speed,
           accuracy: position.accuracy,
           timestamp: position.timestamp.millisecondsSinceEpoch,
+          travelMode: _selectedTravelMode,
         );
 
         // Update database with explicit consent
@@ -199,6 +219,7 @@ class LocationProvider extends ChangeNotifier {
             speed: position.speed,
             accuracy: position.accuracy,
             timestamp: position.timestamp.millisecondsSinceEpoch,
+            travelMode: _selectedTravelMode,
           );
           _recalculateAllDistances();
           notifyListeners();

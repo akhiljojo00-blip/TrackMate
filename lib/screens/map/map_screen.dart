@@ -194,26 +194,57 @@ class _MapScreenState extends State<MapScreen> {
                         ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.navigation, size: 14, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            formattedDistance,
-                            style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(getTravelModeIcon(location.travelMode), size: 14, color: AppColors.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                getTravelModeLabel(location.travelMode),
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (distanceMeters != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.navigation, size: 13, color: AppColors.primary),
+                                const SizedBox(width: 3),
+                                Text(
+                                  formattedDistance,
+                                  style: const TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
                   ],
                 ),
@@ -535,10 +566,10 @@ class _MapScreenState extends State<MapScreen> {
       });
     }
 
-    // Build markers for live friends
+    // Build markers for live friends with smooth coordinate interpolation
     final activeFriendLocations = locationProvider.activeFriendLocations;
     final friendDistances = locationProvider.friendDistances;
-    final friendMarkers = <Marker>[];
+    final friendMarkers = <Widget>[];
 
     for (final friend in connectionProvider.connections) {
       final friendLoc = activeFriendLocations[friend.uid];
@@ -546,8 +577,8 @@ class _MapScreenState extends State<MapScreen> {
         final distance = friendDistances[friend.uid];
         final isStale = ConnectivityProvider.isTelemetryStale(friendLoc.timestamp);
         friendMarkers.add(
-          Marker(
-            point: LatLng(friendLoc.latitude, friendLoc.longitude),
+          SmoothGlideMarker(
+            targetPoint: LatLng(friendLoc.latitude, friendLoc.longitude),
             width: 70,
             height: 70,
             child: GestureDetector(
@@ -556,6 +587,7 @@ class _MapScreenState extends State<MapScreen> {
                 name: friend.name,
                 distanceText: distance != null ? LocationProvider.formatDistance(distance) : null,
                 isStale: isStale,
+                travelMode: friendLoc.travelMode,
               ),
             ),
           ),
@@ -830,12 +862,13 @@ class _MapScreenState extends State<MapScreen> {
                         initials: (userModel?.name.isNotEmpty == true)
                             ? userModel!.name[0].toUpperCase()
                             : 'ME',
+                        travelMode: locationProvider.selectedTravelMode,
                       ),
                     ),
-                  ...friendMarkers,
                   ...emergencyMarkers,
                 ],
               ),
+              ...friendMarkers,
             ],
           ),
 
@@ -903,7 +936,7 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             )
-          else
+          else ...[
             Positioned(
               top: 16,
               left: 16,
@@ -962,6 +995,67 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
+
+            // Floating Travel Mode Selector (Visible when sharing is active)
+            if (isSharing)
+              Positioned(
+                top: 58,
+                left: 20,
+                right: 20,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardColor(context).withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: AppColors.cardBorderColor(context),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _TravelModeButton(
+                          icon: Icons.directions_walk_rounded,
+                          label: 'Walk',
+                          isSelected: locationProvider.selectedTravelMode == LocationModel.modeWalking,
+                          onTap: () => locationProvider.setTravelMode(LocationModel.modeWalking, uid: authProvider.user?.uid),
+                        ),
+                        const SizedBox(width: 4),
+                        _TravelModeButton(
+                          icon: Icons.directions_bike_rounded,
+                          label: 'Bike',
+                          isSelected: locationProvider.selectedTravelMode == LocationModel.modeBiking,
+                          onTap: () => locationProvider.setTravelMode(LocationModel.modeBiking, uid: authProvider.user?.uid),
+                        ),
+                        const SizedBox(width: 4),
+                        _TravelModeButton(
+                          icon: Icons.directions_car_rounded,
+                          label: 'Car',
+                          isSelected: locationProvider.selectedTravelMode == LocationModel.modeCar,
+                          onTap: () => locationProvider.setTravelMode(LocationModel.modeCar, uid: authProvider.user?.uid),
+                        ),
+                        const SizedBox(width: 4),
+                        _TravelModeButton(
+                          icon: Icons.directions_bus_rounded,
+                          label: 'Bus',
+                          isSelected: locationProvider.selectedTravelMode == LocationModel.modeBus,
+                          onTap: () => locationProvider.setTravelMode(LocationModel.modeBus, uid: authProvider.user?.uid),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
 
           // Left Controls (Emergency SOS Button with 3-second hold guard)
           Positioned(
@@ -1067,13 +1161,141 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
+IconData getTravelModeIcon(String? mode) {
+  switch (mode) {
+    case LocationModel.modeBiking:
+      return Icons.directions_bike_rounded;
+    case LocationModel.modeCar:
+      return Icons.directions_car_rounded;
+    case LocationModel.modeBus:
+      return Icons.directions_bus_rounded;
+    case LocationModel.modeWalking:
+    default:
+      return Icons.directions_walk_rounded;
+  }
+}
+
+String getTravelModeLabel(String? mode) {
+  switch (mode) {
+    case LocationModel.modeBiking:
+      return 'Biking';
+    case LocationModel.modeCar:
+      return 'Driving';
+    case LocationModel.modeBus:
+      return 'Transit (Bus)';
+    case LocationModel.modeWalking:
+    default:
+      return 'Walking';
+  }
+}
+
+class LatLngTween extends Tween<LatLng> {
+  LatLngTween({super.begin, super.end});
+
+  @override
+  LatLng lerp(double t) {
+    if (begin == null) return end ?? const LatLng(0, 0);
+    if (end == null) return begin!;
+    final lat = begin!.latitude + (end!.latitude - begin!.latitude) * t;
+    final lng = begin!.longitude + (end!.longitude - begin!.longitude) * t;
+    return LatLng(lat, lng);
+  }
+}
+
+class SmoothGlideMarker extends StatelessWidget {
+  final LatLng targetPoint;
+  final double width;
+  final double height;
+  final Widget child;
+
+  const SmoothGlideMarker({
+    super.key,
+    required this.targetPoint,
+    this.width = 70,
+    this.height = 70,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<LatLng>(
+      tween: LatLngTween(begin: targetPoint, end: targetPoint),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOutCubic,
+      builder: (context, animatedPoint, _) {
+        return MarkerLayer(
+          markers: [
+            Marker(
+              point: animatedPoint,
+              width: width,
+              height: height,
+              child: child,
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TravelModeButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TravelModeButton({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = AppColors.primary;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 15,
+              color: isSelected ? Colors.white : AppColors.textSecondaryColor(context),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : AppColors.textSecondaryColor(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _UserLocationMarker extends StatelessWidget {
   final bool isSharing;
   final String initials;
+  final String travelMode;
 
   const _UserLocationMarker({
     required this.isSharing,
     required this.initials,
+    this.travelMode = LocationModel.modeWalking,
   });
 
   @override
@@ -1082,6 +1304,7 @@ class _UserLocationMarker extends StatelessWidget {
 
     return Stack(
       alignment: Alignment.center,
+      clipBehavior: Clip.none,
       children: [
         if (isSharing)
           Container(
@@ -1118,6 +1341,27 @@ class _UserLocationMarker extends StatelessWidget {
             ),
           ),
         ),
+        if (isSharing)
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              width: 16,
+              height: 16,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: markerColor,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: Center(
+                child: Icon(
+                  getTravelModeIcon(travelMode),
+                  size: 10,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1127,11 +1371,13 @@ class _FriendLocationMarker extends StatelessWidget {
   final String name;
   final String? distanceText;
   final bool isStale;
+  final String travelMode;
 
   const _FriendLocationMarker({
     required this.name,
     this.distanceText,
     this.isStale = false,
+    this.travelMode = LocationModel.modeWalking,
   });
 
   @override
@@ -1139,34 +1385,59 @@ class _FriendLocationMarker extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isStale ? Colors.amber.shade900 : Colors.purple.shade600,
-            border: Border.all(
-              color: isStale ? Colors.amber : Colors.white,
-              width: 2.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isStale ? Colors.amber.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.35),
-                blurRadius: 5,
-                offset: const Offset(0, 2),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isStale ? Colors.amber.shade900 : Colors.purple.shade600,
+                border: Border.all(
+                  color: isStale ? Colors.amber : Colors.white,
+                  width: 2.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isStale ? Colors.amber.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              name.isNotEmpty ? name[0].toUpperCase() : 'U',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+              child: Center(
+                child: Text(
+                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
               ),
             ),
-          ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 17,
+                height: 17,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isStale ? Colors.amber.shade800 : AppColors.primary,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Center(
+                  child: Icon(
+                    getTravelModeIcon(travelMode),
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         if (isStale)
           Container(

@@ -180,17 +180,31 @@ class FriendsMapSheet extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
-                            Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: isLive ? FontWeight.w600 : FontWeight.normal,
-                                color: !isLive
-                                    ? AppColors.textSecondaryColor(context)
-                                    : (isStale ? Colors.amber.shade900 : AppColors.success),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            Row(
+                              children: [
+                                if (isLive && !isStale) ...[
+                                  Icon(
+                                    _getTravelModeIcon(friendLoc.travelMode),
+                                    size: 12,
+                                    color: AppColors.success,
+                                  ),
+                                  const SizedBox(width: 3),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: isLive ? FontWeight.w600 : FontWeight.normal,
+                                      color: !isLive
+                                          ? AppColors.textSecondaryColor(context)
+                                          : (isStale ? Colors.amber.shade900 : AppColors.success),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -215,5 +229,19 @@ class FriendsMapSheet extends StatelessWidget {
         },
       ),
     );
+  }
+
+  IconData _getTravelModeIcon(String? mode) {
+    switch (mode) {
+      case LocationModel.modeBiking:
+        return Icons.directions_bike_rounded;
+      case LocationModel.modeCar:
+        return Icons.directions_car_rounded;
+      case LocationModel.modeBus:
+        return Icons.directions_bus_rounded;
+      case LocationModel.modeWalking:
+      default:
+        return Icons.directions_walk_rounded;
+    }
   }
 }
