@@ -4,11 +4,14 @@ import 'package:trackmate/providers/location_provider.dart';
 
 void main() {
   group('Distance Engine & Formatting Tests', () {
-    test('formatDistance formats sub-kilometer meters correctly', () {
+    test('formatDistance formats sub-kilometer meters rounded to nearest 5 meters', () {
       expect(LocationProvider.formatDistance(0), '0 m');
       expect(LocationProvider.formatDistance(45.2), '45 m');
       expect(LocationProvider.formatDistance(150), '150 m');
-      expect(LocationProvider.formatDistance(999.4), '999 m');
+      expect(LocationProvider.formatDistance(248), '250 m');
+      expect(LocationProvider.formatDistance(252), '250 m');
+      expect(LocationProvider.formatDistance(994), '995 m');
+      expect(LocationProvider.formatDistance(998), '1.0 km');
     });
 
     test('formatDistance formats single-decimal kilometers (<10km)', () {
@@ -18,10 +21,10 @@ void main() {
       expect(LocationProvider.formatDistance(9890), '9.9 km');
     });
 
-    test('formatDistance formats whole kilometers (>=10km)', () {
-      expect(LocationProvider.formatDistance(10000), '10 km');
-      expect(LocationProvider.formatDistance(25400), '25 km');
-      expect(LocationProvider.formatDistance(100000), '100 km');
+    test('formatDistance formats single-decimal kilometers (>=10km)', () {
+      expect(LocationProvider.formatDistance(10000), '10.0 km');
+      expect(LocationProvider.formatDistance(25400), '25.4 km');
+      expect(LocationProvider.formatDistance(100000), '100.0 km');
     });
 
     test('formatDistance handles negative values defensively', () {

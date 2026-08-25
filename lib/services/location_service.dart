@@ -4,6 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class LocationService {
+  static const double maxAccuracyMeters = 15.0;
+
   Future<bool> isLocationServiceEnabled() async {
     return await Geolocator.isLocationServiceEnabled();
   }
@@ -64,6 +66,25 @@ class LocationService {
         distanceFilter: distanceFilter,
       ),
     );
+  }
+
+  Stream<Position> getFilteredPositionStream({
+    int distanceFilter = 5,
+    double maxAccuracyThreshold = maxAccuracyMeters,
+  }) {
+    Position? bestFix;
+    return getPositionStream(distanceFilter: distanceFilter).where((position) {
+      if (position.accuracy <= maxAccuracyThreshold) {
+        bestFix = position;
+        return true;
+      }
+      // If no fix has <= 15m accuracy yet, use best available fix until an accurate fix is obtained
+      if (bestFix == null || position.accuracy < bestFix!.accuracy) {
+        bestFix = position;
+        return true;
+      }
+      return false;
+    });
   }
 
   Stream<Position> getGroupPositionStream({

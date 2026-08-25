@@ -69,18 +69,37 @@ class LocationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  static const double maxAccuracyMeters = 15.0;
+
   static String formatDistance(double meters) {
     if (meters < 0) return '0 m';
     if (meters < 1000) {
-      return '${meters.round()} m';
+      final rounded5 = (meters / 5.0).round() * 5;
+      if (rounded5 >= 1000) {
+        return '1.0 km';
+      }
+      return '$rounded5 m';
     } else {
       final km = meters / 1000.0;
-      if (km < 10) {
-        return '${km.toStringAsFixed(1)} km';
-      } else {
-        return '${km.toStringAsFixed(0)} km';
-      }
+      return '${km.toStringAsFixed(1)} km';
     }
+  }
+
+  /// Determines whether a new GPS fix should be accepted.
+  /// Discards fixes with accuracy > 15m if an accurate fix (<= 15m) is already acquired.
+  /// If no fix <= 15m is available yet, accepts the best available reading until an accurate fix is obtained.
+  static bool shouldAcceptPosition(
+    Position candidate,
+    Position? currentBest, {
+    double maxAccuracy = maxAccuracyMeters,
+  }) {
+    if (candidate.accuracy <= maxAccuracy) {
+      return true;
+    }
+    if (currentBest == null || candidate.accuracy < currentBest.accuracy) {
+      return true;
+    }
+    return currentBest.accuracy > maxAccuracy;
   }
 
   Future<bool> checkAndRequestPermission() async {
@@ -95,10 +114,12 @@ class LocationProvider extends ChangeNotifier {
     try {
       final position = await _locationService.getCurrentPosition();
       if (position != null) {
-        _currentPosition = position;
-        _hasPermission = true;
-        _recalculateAllDistances();
-        notifyListeners();
+        if (shouldAcceptPosition(position, _currentPosition)) {
+          _currentPosition = position;
+          _hasPermission = true;
+          _recalculateAllDistances();
+          notifyListeners();
+        }
       }
       return position;
     } catch (e) {
@@ -164,6 +185,11 @@ class LocationProvider extends ChangeNotifier {
       _positionSubscription = _locationService.getPositionStream(distanceFilter: 5).listen(
         (position) async {
           _rawFixCount++;
+          if (!shouldAcceptPosition(position, _currentPosition)) {
+            // Discard inaccurate jitter fix (accuracy > 15m when better fix exists)
+            return;
+          }
+
           _currentPosition = position;
           _currentLocationModel = LocationModel(
             userId: uid,
