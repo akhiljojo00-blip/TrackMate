@@ -28,6 +28,11 @@ class ConnectionProvider extends ChangeNotifier {
   StreamSubscription<List<ConnectionRequestModel>>? _requestsSub;
   StreamSubscription<List<ConnectionRequestModel>>? _sentRequestsSub;
 
+  Timer? _searchDebounceTimer;
+  int _activeSearchToken = 0;
+  static const int minSearchQueryLength = 2;
+  static const Duration defaultDebounceDuration = Duration(milliseconds: 300);
+
   List<ConnectionUser> get connections => _connections;
   List<ConnectionRequestModel> get incomingRequests => _incomingRequests;
   List<ConnectionRequestModel> get sentRequests => _sentRequests;
@@ -37,6 +42,7 @@ class ConnectionProvider extends ChangeNotifier {
   String? get searchError => _searchError;
   String? get actionError => _actionError;
   String? get currentUid => _currentUid;
+  int get activeSearchToken => _activeSearchToken;
 
   void initializeForUser(String uid) {
     if (_currentUid == uid &&
@@ -112,6 +118,9 @@ class ConnectionProvider extends ChangeNotifier {
   }
 
   void clear() {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = null;
+    _activeSearchToken++;
     _cancelSubscriptions();
     _currentUid = null;
     _connections = [];
@@ -150,9 +159,21 @@ class ConnectionProvider extends ChangeNotifier {
         _sentRequests.any((r) => r.receiverUid == targetUid);
   }
 
-  Future<void> searchUsers(String query, String currentUid) async {
-    final trimmed = query.trim();
-    if (trimmed.isEmpty) {
+  void searchUsers(
+    String query,
+    String currentUid, {
+    Duration debounceDuration = defaultDebounceDuration,
+    bool immediate = false,
+  }) {
+    final trimmed = query.trim().toLowerCase();
+
+    // Cancel active debouncing timer
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = null;
+
+    // Queries shorter than minimum length immediately clear results and cancel work
+    if (trimmed.length < minSearchQueryLength) {
+      _activeSearchToken++;
       _searchResults = [];
       _searchError = null;
       _isSearching = false;
@@ -164,21 +185,49 @@ class ConnectionProvider extends ChangeNotifier {
     _searchError = null;
     notifyListeners();
 
+    if (immediate) {
+      final token = ++_activeSearchToken;
+      _executeSearch(trimmed, currentUid, token);
+    } else {
+      final token = ++_activeSearchToken;
+      _searchDebounceTimer = Timer(debounceDuration, () {
+        _executeSearch(trimmed, currentUid, token);
+      });
+    }
+  }
+
+  Future<void> _executeSearch(String query, String currentUid, int requestToken) async {
     try {
-      _searchResults = await _databaseService.searchUsersByUsername(
-        trimmed,
+      final results = await _databaseService.searchUsersByUsername(
+        query,
         currentUid: currentUid,
       );
+
+      // Discard stale responses if newer search was dispatched
+      if (requestToken != _activeSearchToken) {
+        debugPrint('Discarding stale search response for token $requestToken (active: $_activeSearchToken)');
+        return;
+      }
+
+      _searchResults = results;
+      _searchError = null;
     } catch (e) {
-      _searchError = 'Search failed: ${e.toString()}';
-      _searchResults = [];
+      if (requestToken == _activeSearchToken) {
+        _searchError = 'Search failed: ${e.toString()}';
+        _searchResults = [];
+      }
     } finally {
-      _isSearching = false;
-      notifyListeners();
+      if (requestToken == _activeSearchToken) {
+        _isSearching = false;
+        notifyListeners();
+      }
     }
   }
 
   void clearSearch() {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = null;
+    _activeSearchToken++;
     _searchResults = [];
     _searchError = null;
     _isSearching = false;
@@ -319,6 +368,8 @@ class ConnectionProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = null;
     _cancelSubscriptions();
     super.dispose();
   }

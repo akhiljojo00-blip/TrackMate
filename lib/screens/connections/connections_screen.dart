@@ -177,6 +177,15 @@ class _ConnectionsScreenState extends State<ConnectionsScreen> with SingleTicker
               ),
             ),
           )
+        else if (_searchController.text.trim().length < 2)
+          const Expanded(
+            child: Center(
+              child: Text(
+                'Type at least 2 characters to search.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          )
         else if (connectionProvider.searchResults.isEmpty)
           const Expanded(
             child: Center(
