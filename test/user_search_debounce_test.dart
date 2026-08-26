@@ -22,7 +22,7 @@ void main() {
       final provider = ConnectionProvider();
       final initialToken = provider.activeSearchToken;
 
-      // Simulate rapid typing with custom short debounce to test mechanics
+      // Simulate rapid typing with custom short debounce to test mechanics: 'a' -> 'ak' -> 'akh' -> 'akhi'
       provider.searchUsers('a', 'user_current', debounceDuration: const Duration(milliseconds: 50));
       await Future.delayed(const Duration(milliseconds: 10));
 
@@ -48,6 +48,25 @@ void main() {
 
       // Token matches the final query
       expect(provider.activeSearchToken, equals(tokenAkhi));
+    });
+
+    test('Delayed or out-of-order response with stale token is discarded', () async {
+      final provider = ConnectionProvider();
+
+      // Trigger initial search which gets token 1
+      provider.searchUsers('initial_query', 'user_current', debounceDuration: const Duration(milliseconds: 50));
+      final initialToken = provider.activeSearchToken;
+
+      // User immediately types a new query before the first search completes, bumping token
+      provider.searchUsers('newer_query', 'user_current', debounceDuration: const Duration(milliseconds: 50));
+      final newerToken = provider.activeSearchToken;
+
+      expect(newerToken, greaterThan(initialToken));
+
+      // Wait for the new debounce timer to fire
+      await Future.delayed(const Duration(milliseconds: 80));
+
+      expect(provider.activeSearchToken, equals(newerToken));
     });
 
     test('clearSearch immediately cancels debounce and resets state', () async {
