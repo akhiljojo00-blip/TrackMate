@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/account_deletion_service.dart';
 import '../services/auth_service.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
@@ -10,6 +11,7 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
   final DatabaseService _databaseService;
   final NotificationService _notificationService;
+  final AccountDeletionService _accountDeletionService;
 
   User? _user;
   UserModel? _userModel;
@@ -31,9 +33,11 @@ class AuthProvider extends ChangeNotifier {
     AuthService? authService,
     DatabaseService? databaseService,
     NotificationService? notificationService,
+    AccountDeletionService? accountDeletionService,
   })  : _authService = authService ?? AuthService(),
         _databaseService = databaseService ?? DatabaseService(),
-        _notificationService = notificationService ?? NotificationService() {
+        _notificationService = notificationService ?? NotificationService(),
+        _accountDeletionService = accountDeletionService ?? AccountDeletionService() {
     _initializeAuth();
   }
 
@@ -381,6 +385,52 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteAccount({
+    required String password,
+  }) async {
+    if (_user == null) {
+      _errorMessage = 'No authenticated user session found.';
+      notifyListeners();
+      return false;
+    }
+    _setLoading(true);
+    _errorMessage = null;
+
+    try {
+      final user = _user!;
+      final userModel = _userModel ??
+          UserModel(
+            uid: user.uid,
+            name: user.displayName ?? 'User',
+            username: (user.email?.split('@').first ?? 'user').toLowerCase(),
+            email: user.email ?? '',
+            isLocationSharing: false,
+            createdAt: 0,
+          );
+
+      await _accountDeletionService.purgeAndCloseAccount(
+        authUser: user,
+        password: password,
+        userModel: userModel,
+      );
+
+      _user = null;
+      _userModel = null;
+      _errorMessage = null;
+      _setLoading(false);
+      notifyListeners();
+      return true;
+    } on FirebaseAuthException catch (e) {
+      _errorMessage = _getFriendlyAuthErrorMessage(e);
+      _setLoading(false);
+      return false;
+    } catch (e) {
+      _errorMessage = 'Failed to delete account: ${e.toString()}';
+      _setLoading(false);
+      return false;
+    }
+  }
+
   String _getFriendlyAuthErrorMessage(FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
@@ -394,6 +444,8 @@ class AuthProvider extends ChangeNotifier {
         return 'The email address format is invalid.';
       case 'weak-password':
         return 'The password provided is too weak.';
+      case 'requires-recent-login':
+        return 'Session expired. Please sign out and sign back in to delete your account.';
       case 'network-request-failed':
         return 'Network connection failed. Please check your internet connection.';
       default:

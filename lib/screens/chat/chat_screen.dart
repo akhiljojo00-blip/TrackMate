@@ -211,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 radius: 18,
                 backgroundColor: AppColors.primary,
                 child: Text(
-                  widget.peerName.isNotEmpty ? widget.peerName[0].toUpperCase() : 'U',
+                  widget.peerName.trim().isNotEmpty ? widget.peerName.trim()[0].toUpperCase() : '?',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -221,12 +221,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.peerName,
+                      widget.peerName.trim().isNotEmpty ? widget.peerName : 'Deleted User',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
-                      '@${widget.peerUsername}',
+                      widget.peerUsername.trim().isNotEmpty ? '@${widget.peerUsername}' : '@deleted',
                       style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                       overflow: TextOverflow.ellipsis,
                     ),

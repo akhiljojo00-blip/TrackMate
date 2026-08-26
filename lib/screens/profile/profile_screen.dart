@@ -58,6 +58,163 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _handleDeleteAccount(BuildContext context) async {
+    final passwordController = TextEditingController();
+    bool isObscured = true;
+    String? localError;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 26),
+                SizedBox(width: 8),
+                Text('Delete Account', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This action is permanent and cannot be undone.',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.error),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'All your data will be permanently erased, including your live GPS tracking history, friend connections, geofences, and profile information. Your username will be released.',
+                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Enter your password to confirm:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: isObscured,
+                    decoration: InputDecoration(
+                      hintText: 'Current Password',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      suffixIcon: IconButton(
+                        icon: Icon(isObscured ? Icons.visibility_off : Icons.visibility, size: 20),
+                        onPressed: () => setState(() => isObscured = !isObscured),
+                      ),
+                    ),
+                  ),
+                  if (localError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      localError!,
+                      style: const TextStyle(color: AppColors.error, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  final pwd = passwordController.text.trim();
+                  if (pwd.isEmpty) {
+                    setState(() => localError = 'Please enter your password.');
+                    return;
+                  }
+                  Navigator.of(ctx).pop(true);
+                },
+                child: const Text('Permanently Delete'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (confirm == true && context.mounted) {
+      final authProvider = context.read<AuthProvider>();
+      final locationProvider = context.read<LocationProvider>();
+      final uid = authProvider.user?.uid;
+
+      // Show modal loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const PopScope(
+          canPop: false,
+          child: Center(
+            child: Card(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Permanently deleting account & data...', style: TextStyle(fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (uid != null && locationProvider.isTracking) {
+        await locationProvider.stopTracking(uid);
+      }
+      locationProvider.clearAllFriendSubscriptions();
+
+      final success = await authProvider.deleteAccount(
+        password: passwordController.text.trim(),
+      );
+
+      if (context.mounted) {
+        // Dismiss loading dialog
+        Navigator.of(context, rootNavigator: true).pop();
+
+        if (success) {
+          context.read<ConnectionProvider>().clear();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Account permanently deleted. We are sorry to see you go!'),
+              backgroundColor: AppColors.success,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(authProvider.errorMessage ?? 'Failed to delete account. Please try again.'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -390,14 +547,30 @@ class ProfileScreen extends StatelessWidget {
               // Sign Out Button
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  side: const BorderSide(color: AppColors.error, width: 1.2),
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: Colors.grey.shade300, width: 1.2),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
                 icon: const Icon(Icons.logout_rounded, size: 18),
                 label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 onPressed: () => _handleSignOut(context),
+              ),
+              const SizedBox(height: 12),
+
+              // Danger Zone: Delete Account Button
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.error,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.delete_forever_rounded, size: 18, color: AppColors.error),
+                label: const Text(
+                  'Delete Account',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.error),
+                ),
+                onPressed: () => _handleDeleteAccount(context),
               ),
             ],
           ),

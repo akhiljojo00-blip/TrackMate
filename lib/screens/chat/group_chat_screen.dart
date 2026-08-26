@@ -759,7 +759,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                         radius: 8,
                                         backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                                         child: Text(
-                                          message.senderName.isNotEmpty ? message.senderName[0].toUpperCase() : 'U',
+                                          message.senderName.trim().isNotEmpty ? message.senderName.trim()[0].toUpperCase() : '?',
                                           style: const TextStyle(
                                             fontSize: 8,
                                             fontWeight: FontWeight.bold,
@@ -769,7 +769,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                       ),
                                       const SizedBox(width: 5),
                                       Text(
-                                        message.senderName,
+                                        message.senderName.trim().isNotEmpty ? message.senderName : 'Deleted User',
                                         style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,

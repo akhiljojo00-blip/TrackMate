@@ -49,6 +49,17 @@ class UserModel {
     );
   }
 
+  factory UserModel.deletedUser(String uid) {
+    return UserModel(
+      uid: uid,
+      name: 'Deleted User',
+      username: 'deleted',
+      email: '',
+      isLocationSharing: false,
+      createdAt: 0,
+    );
+  }
+
   UserModel copyWith({
     String? uid,
     String? name,
