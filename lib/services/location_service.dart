@@ -57,23 +57,76 @@ class LocationService {
     }
   }
 
+  static LocationSettings getForegroundLocationSettings({
+    int distanceFilter = 5,
+    LocationAccuracy accuracy = LocationAccuracy.high,
+    String notificationTitle = 'TrackMate Live Sharing',
+    String notificationText = 'Sharing your live location in the background',
+    bool enableWakeLock = true,
+  }) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidSettings(
+        accuracy: accuracy,
+        distanceFilter: distanceFilter,
+        forceLocationManager: false,
+        intervalDuration: const Duration(seconds: 3),
+        foregroundNotificationConfig: ForegroundNotificationConfig(
+          notificationTitle: notificationTitle,
+          notificationText: notificationText,
+          notificationIcon: const AndroidResource(name: 'ic_launcher'),
+          enableWakeLock: enableWakeLock,
+          setOngoing: true,
+        ),
+      );
+    } else if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      return AppleSettings(
+        accuracy: accuracy,
+        distanceFilter: distanceFilter,
+        activityType: ActivityType.fitness,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+      );
+    } else {
+      return LocationSettings(
+        accuracy: accuracy,
+        distanceFilter: distanceFilter,
+      );
+    }
+  }
+
   Stream<Position> getPositionStream({
     int distanceFilter = 5,
+    bool enableForegroundService = true,
+    String notificationTitle = 'TrackMate Live Sharing',
+    String notificationText = 'Sharing your live location in the background',
   }) {
+    final settings = enableForegroundService
+        ? getForegroundLocationSettings(
+            distanceFilter: distanceFilter,
+            notificationTitle: notificationTitle,
+            notificationText: notificationText,
+          )
+        : LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: distanceFilter,
+          );
+
     return Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: distanceFilter,
-      ),
+      locationSettings: settings,
     );
   }
 
   Stream<Position> getFilteredPositionStream({
     int distanceFilter = 5,
     double maxAccuracyThreshold = maxAccuracyMeters,
+    bool enableForegroundService = true,
   }) {
     Position? bestFix;
-    return getPositionStream(distanceFilter: distanceFilter).where((position) {
+    return getPositionStream(
+      distanceFilter: distanceFilter,
+      enableForegroundService: enableForegroundService,
+    ).where((position) {
       if (position.accuracy <= maxAccuracyThreshold) {
         bestFix = position;
         return true;
@@ -89,12 +142,31 @@ class LocationService {
 
   Stream<Position> getGroupPositionStream({
     int distanceFilter = 15,
+    String? groupTitle,
   }) {
-    return Geolocator.getPositionStream(
-      locationSettings: LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: distanceFilter,
-      ),
+    final text = groupTitle != null && groupTitle.isNotEmpty
+        ? 'Sharing live session in $groupTitle'
+        : 'Sharing live group tracking session';
+
+    return getPositionStream(
+      distanceFilter: distanceFilter,
+      enableForegroundService: true,
+      notificationTitle: 'TrackMate Group Tracking',
+      notificationText: text,
     );
+  }
+
+  Future<bool> requestIgnoreBatteryOptimizations() async {
+    try {
+      final status = await Permission.ignoreBatteryOptimizations.status;
+      if (!status.isGranted) {
+        final result = await Permission.ignoreBatteryOptimizations.request();
+        return result.isGranted;
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Notice: unable to request battery optimization exemption: $e');
+      return false;
+    }
   }
 }

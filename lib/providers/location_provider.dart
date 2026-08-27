@@ -150,6 +150,10 @@ class LocationProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> requestIgnoreBatteryOptimizations() async {
+    return await _locationService.requestIgnoreBatteryOptimizations();
+  }
+
   Future<bool> startTracking(String uid) async {
     _setLoading(true);
     _locationError = null;
@@ -202,7 +206,14 @@ class LocationProvider extends ChangeNotifier {
       notifyListeners();
 
       _positionSubscription?.cancel();
-      _positionSubscription = _locationService.getPositionStream(distanceFilter: 5).listen(
+      _positionSubscription = _locationService
+          .getPositionStream(
+            distanceFilter: 5,
+            enableForegroundService: true,
+            notificationTitle: 'TrackMate Live Sharing',
+            notificationText: 'Sharing your live location with friends',
+          )
+          .listen(
         (position) async {
           _rawFixCount++;
           if (!shouldAcceptPosition(position, _currentPosition)) {
