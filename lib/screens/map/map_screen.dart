@@ -24,6 +24,8 @@ import '../profile/profile_screen.dart';
 import '../geofence/geofence_list_screen.dart';
 import '../diagnostics/diagnostics_screen.dart';
 import '../auth/login_screen.dart';
+import 'widgets/timed_sharing_bottom_sheet.dart';
+import 'widgets/active_sharing_hud.dart';
 
 class MapScreen extends StatefulWidget {
   final LatLng? initialFocusLocation;
@@ -106,17 +108,29 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
     } else {
-      final success = await locationProvider.startTracking(currentUid);
+      final option = await TimedSharingBottomSheet.show(context);
+      if (option == null || !mounted) return;
+
+      bool success = false;
+      if (option.duration != null) {
+        success = await locationProvider.startTimedTracking(currentUid, option.duration!);
+      } else {
+        success = await locationProvider.startTracking(currentUid);
+      }
+
       if (success && mounted) {
         final latLng = locationProvider.currentLatLng;
         if (latLng != null) {
           _mapController.move(latLng, 16.0);
         }
+        final msg = option.duration != null
+            ? 'Live location sharing is ACTIVE (${_formatDurationMessage(option.duration!)}).'
+            : 'Live location sharing is now ACTIVE (Indefinite).';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Live location sharing is now ACTIVE.'),
+          SnackBar(
+            content: Text(msg),
             backgroundColor: AppColors.success,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 3),
           ),
         );
       } else if (locationProvider.locationError != null && mounted) {
@@ -127,6 +141,16 @@ class _MapScreenState extends State<MapScreen> {
           ),
         );
       }
+    }
+  }
+
+  String _formatDurationMessage(Duration duration) {
+    if (duration.inHours >= 1 && duration.inMinutes % 60 == 0) {
+      return '${duration.inHours} hour${duration.inHours > 1 ? 's' : ''}';
+    } else if (duration.inMinutes >= 60) {
+      return '${duration.inHours}h ${duration.inMinutes % 60}m';
+    } else {
+      return '${duration.inMinutes} mins';
     }
   }
 
@@ -945,56 +969,11 @@ class _MapScreenState extends State<MapScreen> {
               left: 16,
               right: 16,
               child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSharing
-                        ? AppColors.success.withValues(alpha: 0.9)
-                        : Colors.grey.shade800.withValues(alpha: 0.85),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSharing ? Icons.radar : Icons.location_off_outlined,
-                        color: Colors.white,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        isSharing ? 'Live Sharing ACTIVE' : 'Sharing is OFF',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                      ),
-                      if (activeFriendLocations.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${activeFriendLocations.length} friend${activeFriendLocations.length > 1 ? 's' : ''} visible',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
-                      ],
-                    ],
-                  ),
+                child: ActiveSharingHud(
+                  isTracking: isSharing,
+                  expiresAt: locationProvider.currentExpiresAt,
+                  visibleFriendsCount: activeFriendLocations.length,
+                  onStopPressed: _handleToggleSharing,
                 ),
               ),
             ),
