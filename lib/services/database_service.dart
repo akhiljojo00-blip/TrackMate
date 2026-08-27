@@ -151,8 +151,18 @@ class DatabaseService {
     return _usersRef.child(uid).onValue;
   }
 
-  Future<void> updateLocationSharingConsent(String uid, bool isSharing) async {
-    await _usersRef.child(uid).update({'isLocationSharing': isSharing});
+  Future<void> updateLocationSharingConsent(
+    String uid,
+    bool isSharing, {
+    int? expiresAt,
+    String sharingType = 'live',
+  }) async {
+    final Map<String, dynamic> updates = {
+      'isLocationSharing': isSharing,
+      'sharingExpiresAt': isSharing ? expiresAt : null,
+      'sharingType': isSharing ? sharingType : null,
+    };
+    await _usersRef.child(uid).update(updates);
   }
 
   Future<void> updateUserProfile(String uid, Map<String, dynamic> updates) async {

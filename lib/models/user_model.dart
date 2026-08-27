@@ -8,6 +8,8 @@ class UserModel {
   final String? bio;
   final String? emergencyContact;
   final int? avatarPresetIndex;
+  final int? sharingExpiresAt;
+  final String? sharingType;
 
   const UserModel({
     required this.uid,
@@ -19,6 +21,8 @@ class UserModel {
     this.bio,
     this.emergencyContact,
     this.avatarPresetIndex,
+    this.sharingExpiresAt,
+    this.sharingType,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +36,8 @@ class UserModel {
       'bio': bio,
       'emergencyContact': emergencyContact,
       'avatarPresetIndex': avatarPresetIndex,
+      'sharingExpiresAt': sharingExpiresAt,
+      'sharingType': sharingType,
     };
   }
 
@@ -46,6 +52,8 @@ class UserModel {
       bio: map['bio']?.toString(),
       emergencyContact: map['emergencyContact']?.toString(),
       avatarPresetIndex: (map['avatarPresetIndex'] as num?)?.toInt(),
+      sharingExpiresAt: (map['sharingExpiresAt'] as num?)?.toInt(),
+      sharingType: map['sharingType']?.toString(),
     );
   }
 
@@ -70,6 +78,9 @@ class UserModel {
     String? bio,
     String? emergencyContact,
     int? avatarPresetIndex,
+    int? sharingExpiresAt,
+    bool clearSharingExpiresAt = false,
+    String? sharingType,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -81,6 +92,8 @@ class UserModel {
       bio: bio ?? this.bio,
       emergencyContact: emergencyContact ?? this.emergencyContact,
       avatarPresetIndex: avatarPresetIndex ?? this.avatarPresetIndex,
+      sharingExpiresAt: clearSharingExpiresAt ? null : (sharingExpiresAt ?? this.sharingExpiresAt),
+      sharingType: sharingType ?? this.sharingType,
     );
   }
 }

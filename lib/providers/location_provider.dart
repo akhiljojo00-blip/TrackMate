@@ -11,6 +11,8 @@ import '../services/geofence_service.dart';
 
 class LocationProvider extends ChangeNotifier {
   static const String _prefKeyPrefix = 'is_sharing_location_active_';
+  static const String _prefExpiresAtPrefix = 'location_sharing_expires_at_';
+  static const String _prefSharingTypePrefix = 'location_sharing_type_';
 
   final LocationService _locationService = LocationService();
   final DatabaseService _databaseService = DatabaseService();
@@ -23,6 +25,11 @@ class LocationProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _locationError;
   DateTime? _lastSyncTime;
+
+  // Timed Location Session State
+  int? _currentExpiresAt;
+  String _currentSharingType = LocationModel.sharingTypeLive;
+  Timer? _fallbackExpiryTimer;
 
   // In-Memory Diagnostics & Telemetry
   int _rawFixCount = 0;
@@ -49,6 +56,18 @@ class LocationProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get locationError => _locationError;
   String get selectedTravelMode => _selectedTravelMode;
+  int? get currentExpiresAt => _currentExpiresAt;
+  String get currentSharingType => _currentSharingType;
+
+  Duration? get remainingSharingDuration {
+    if (_currentExpiresAt == null) return null;
+    final diff = _currentExpiresAt! - DateTime.now().millisecondsSinceEpoch;
+    if (diff <= 0) return Duration.zero;
+    return Duration(milliseconds: diff);
+  }
+
+  bool get isSharingExpired =>
+      _currentExpiresAt != null && DateTime.now().millisecondsSinceEpoch >= _currentExpiresAt!;
 
   Future<void> setTravelMode(String mode, {String? uid}) async {
     if (!LocationModel.supportedTravelModes.contains(mode)) return;
@@ -157,7 +176,24 @@ class LocationProvider extends ChangeNotifier {
     return await _locationService.requestIgnoreBatteryOptimizations();
   }
 
-  Future<bool> startTracking(String uid) async {
+  Future<bool> startTimedTracking(
+    String uid,
+    Duration duration, {
+    String sharingType = LocationModel.sharingTypeLive,
+  }) async {
+    final expiresAt = DateTime.now().millisecondsSinceEpoch + duration.inMilliseconds;
+    return await startTracking(
+      uid,
+      expiresAt: expiresAt,
+      sharingType: sharingType,
+    );
+  }
+
+  Future<bool> startTracking(
+    String uid, {
+    int? expiresAt,
+    String sharingType = LocationModel.sharingTypeLive,
+  }) async {
     _setLoading(true);
     _locationError = null;
 
@@ -172,6 +208,21 @@ class LocationProvider extends ChangeNotifier {
       _trackingStartTime = DateTime.now();
       _rawFixCount = 0;
       _syncDispatchCount = 0;
+      _currentExpiresAt = expiresAt;
+      _currentSharingType = sharingType;
+
+      // Stationary Fallback Expiration Timer
+      _fallbackExpiryTimer?.cancel();
+      _fallbackExpiryTimer = null;
+      if (expiresAt != null) {
+        final remainingMs = expiresAt - DateTime.now().millisecondsSinceEpoch;
+        if (remainingMs > 0) {
+          _fallbackExpiryTimer = Timer(Duration(milliseconds: remainingMs), () {
+            debugPrint('Timed location session expired via fallback timer for user $uid');
+            stopTracking(uid);
+          });
+        }
+      }
 
       _geofenceService.initializeForUser(uid);
       final position = await _locationService.getCurrentPosition();
@@ -186,12 +237,19 @@ class LocationProvider extends ChangeNotifier {
           accuracy: position.accuracy,
           timestamp: position.timestamp.millisecondsSinceEpoch,
           travelMode: _selectedTravelMode,
+          expiresAt: _currentExpiresAt,
+          sharingType: _currentSharingType,
         );
 
         // Update database with explicit consent
         _rawFixCount++;
         _syncDispatchCount++;
-        await _databaseService.updateLocationSharingConsent(uid, true);
+        await _databaseService.updateLocationSharingConsent(
+          uid,
+          true,
+          expiresAt: _currentExpiresAt,
+          sharingType: _currentSharingType,
+        );
         await _databaseService.updateUserLocation(uid, _currentLocationModel!);
         _lastSyncTime = DateTime.now();
         _recalculateAllDistances();
@@ -219,6 +277,15 @@ class LocationProvider extends ChangeNotifier {
           .listen(
         (position) async {
           _rawFixCount++;
+
+          // In-Stream Expiration Check
+          if (_currentExpiresAt != null &&
+              DateTime.now().millisecondsSinceEpoch >= _currentExpiresAt!) {
+            debugPrint('In-stream GPS detected expired session for user $uid');
+            await stopTracking(uid);
+            return;
+          }
+
           if (!shouldAcceptPosition(position, _currentPosition)) {
             // Discard inaccurate jitter fix (accuracy > 15m when better fix exists)
             return;
@@ -234,6 +301,8 @@ class LocationProvider extends ChangeNotifier {
             accuracy: position.accuracy,
             timestamp: position.timestamp.millisecondsSinceEpoch,
             travelMode: _selectedTravelMode,
+            expiresAt: _currentExpiresAt,
+            sharingType: _currentSharingType,
           );
           _recalculateAllDistances();
           notifyListeners();
@@ -265,6 +334,12 @@ class LocationProvider extends ChangeNotifier {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('$_prefKeyPrefix$uid', true);
+        if (_currentExpiresAt != null) {
+          await prefs.setInt('$_prefExpiresAtPrefix$uid', _currentExpiresAt!);
+        } else {
+          await prefs.remove('$_prefExpiresAtPrefix$uid');
+        }
+        await prefs.setString('$_prefSharingTypePrefix$uid', _currentSharingType);
       } catch (e) {
         debugPrint('Notice: unable to persist active tracking state: $e');
       }
@@ -282,11 +357,14 @@ class LocationProvider extends ChangeNotifier {
   Future<void> stopTracking(String uid) async {
     _setLoading(true);
     try {
+      _fallbackExpiryTimer?.cancel();
+      _fallbackExpiryTimer = null;
       _positionSubscription?.cancel();
       _positionSubscription = null;
       _isTracking = false;
       _lastSyncTime = null;
       _trackingStartTime = null;
+      _currentExpiresAt = null;
 
       // Update database to reflect consent revoked and remove active coordinates
       await _databaseService.updateLocationSharingConsent(uid, false);
@@ -296,6 +374,8 @@ class LocationProvider extends ChangeNotifier {
       try {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('$_prefKeyPrefix$uid', false);
+        await prefs.remove('$_prefExpiresAtPrefix$uid');
+        await prefs.remove('$_prefSharingTypePrefix$uid');
       } catch (e) {
         debugPrint('Notice: unable to persist inactive tracking state: $e');
       }
@@ -316,17 +396,37 @@ class LocationProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final localActive = prefs.getBool('$_prefKeyPrefix$uid') ?? false;
+      int? localExpiresAt = prefs.getInt('$_prefExpiresAtPrefix$uid');
+      final localSharingType = prefs.getString('$_prefSharingTypePrefix$uid') ?? LocationModel.sharingTypeLive;
 
       // Check remote database state as authority
       bool remoteActive = false;
+      int? remoteExpiresAt;
+      String? remoteSharingType;
       final profile = await _databaseService.getUserProfile(uid);
       if (profile != null) {
         remoteActive = profile.isLocationSharing;
+        remoteExpiresAt = profile.sharingExpiresAt;
+        remoteSharingType = profile.sharingType;
       }
 
-      if (localActive || remoteActive) {
-        debugPrint('Auto-restoring background location tracking for user $uid');
-        await startTracking(uid);
+      final active = localActive || remoteActive;
+      final effectiveExpiresAt = remoteExpiresAt ?? localExpiresAt;
+      final effectiveSharingType = remoteSharingType ?? localSharingType;
+
+      if (active) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        if (effectiveExpiresAt != null && now >= effectiveExpiresAt) {
+          debugPrint('Cold-start recovery detected expired session for user $uid. Cleaning up.');
+          await stopTracking(uid);
+        } else {
+          debugPrint('Auto-restoring background location tracking for user $uid (expiresAt: $effectiveExpiresAt)');
+          await startTracking(
+            uid,
+            expiresAt: effectiveExpiresAt,
+            sharingType: effectiveSharingType,
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error checking/restoring tracking state: $e');
