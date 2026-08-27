@@ -363,6 +363,29 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> sendPasswordReset(String email) async {
+    final cleanEmail = email.trim();
+    if (cleanEmail.isEmpty) {
+      throw 'Please enter your email address.';
+    }
+    try {
+      await _authService.sendPasswordResetEmail(cleanEmail);
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+          throw 'No account found with this email address.';
+        case 'invalid-email':
+          throw 'Please enter a valid email address.';
+        case 'too-many-requests':
+          throw 'Too many attempts. Please try again later.';
+        default:
+          throw e.message ?? 'Failed to send password reset email.';
+      }
+    } catch (e) {
+      throw e.toString();
+    }
+  }
+
   Future<void> signOut() async {
     _setLoading(true);
     try {
