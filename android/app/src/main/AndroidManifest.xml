@@ -13,7 +13,8 @@
     <application
         android:label="TrackMate"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round">
         <service
             android:name="com.baseflow.geolocator.GeolocatorLocationService"
             android:enabled="true"
