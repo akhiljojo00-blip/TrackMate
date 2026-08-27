@@ -30,6 +30,7 @@ class LocationProvider extends ChangeNotifier {
   int? _currentExpiresAt;
   String _currentSharingType = LocationModel.sharingTypeLive;
   Timer? _fallbackExpiryTimer;
+  Timer? _stationaryHeartbeatTimer;
 
   // In-Memory Diagnostics & Telemetry
   int _rawFixCount = 0;
@@ -214,6 +215,13 @@ class LocationProvider extends ChangeNotifier {
       return false;
     }
 
+    // Request battery optimization exemption for background/screen-off retention
+    try {
+      await _locationService.requestIgnoreBatteryOptimizations();
+    } catch (e) {
+      debugPrint('Notice: unable to request battery optimization exemption: $e');
+    }
+
     try {
       _trackingStartTime = DateTime.now();
       _rawFixCount = 0;
@@ -233,6 +241,37 @@ class LocationProvider extends ChangeNotifier {
           });
         }
       }
+
+      // Stationary Heartbeat Timer (guarantees screen-off telemetry freshness every 35s)
+      _stationaryHeartbeatTimer?.cancel();
+      _stationaryHeartbeatTimer = Timer.periodic(const Duration(seconds: 35), (timer) async {
+        if (!_isTracking || _currentLocationModel == null) return;
+        final now = DateTime.now();
+
+        // Check if session expired
+        if (_currentExpiresAt != null && now.millisecondsSinceEpoch >= _currentExpiresAt!) {
+          debugPrint('Stationary heartbeat timer detected session expiration for user $uid');
+          await stopTracking(uid);
+          return;
+        }
+
+        // If no GPS displacement fix has synced in the last 30 seconds, send a fresh heartbeat
+        if (_lastSyncTime == null || now.difference(_lastSyncTime!).inSeconds >= 30) {
+          _lastSyncTime = now;
+          _syncDispatchCount++;
+          _currentLocationModel = _currentLocationModel!.copyWith(
+            timestamp: now.millisecondsSinceEpoch,
+            expiresAt: _currentExpiresAt,
+            sharingType: _currentSharingType,
+          );
+          try {
+            await _databaseService.updateUserLocation(uid, _currentLocationModel!);
+            debugPrint('Stationary heartbeat dispatched for user $uid (screen-off retention)');
+          } catch (e) {
+            debugPrint('Notice: unable to dispatch stationary heartbeat: $e');
+          }
+        }
+      });
 
       _geofenceService.initializeForUser(uid);
       final position = await _locationService.getCurrentPosition();
@@ -367,6 +406,8 @@ class LocationProvider extends ChangeNotifier {
   Future<void> stopTracking(String uid) async {
     _setLoading(true);
     try {
+      _stationaryHeartbeatTimer?.cancel();
+      _stationaryHeartbeatTimer = null;
       _fallbackExpiryTimer?.cancel();
       _fallbackExpiryTimer = null;
       _positionSubscription?.cancel();
