@@ -48,6 +48,9 @@ class LocationModel {
   bool get isExpired =>
       expiresAt != null && DateTime.now().millisecondsSinceEpoch >= expiresAt!;
 
+  bool isExpiredWithGrace({int graceMs = 30000}) =>
+      expiresAt != null && DateTime.now().millisecondsSinceEpoch >= (expiresAt! + graceMs);
+
   bool get isIndefinite => expiresAt == null;
 
   Duration? get remainingDuration {

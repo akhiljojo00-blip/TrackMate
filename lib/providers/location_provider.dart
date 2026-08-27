@@ -96,7 +96,17 @@ class LocationProvider extends ChangeNotifier {
       ? ((_rawFixCount - _syncDispatchCount) / _rawFixCount * 100).clamp(0.0, 100.0)
       : 0.0;
 
-  Map<String, LocationModel> get activeFriendLocations => Map.unmodifiable(_activeFriendLocations);
+  Map<String, LocationModel> get activeFriendLocations {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final active = <String, LocationModel>{};
+    _activeFriendLocations.forEach((uid, loc) {
+      final isExpired = loc.expiresAt != null && now >= (loc.expiresAt! + 30000);
+      if (!isExpired) {
+        active[uid] = loc;
+      }
+    });
+    return Map.unmodifiable(active);
+  }
   Map<String, double> get friendDistances => Map.unmodifiable(_friendDistances);
   Map<String, bool> get outboundPermissions => Map.unmodifiable(_outboundPermissions);
 
@@ -462,11 +472,11 @@ class LocationProvider extends ChangeNotifier {
               _friendLocationSubs[friendUid] = _databaseService
                   .getUserLocationStream(friendUid)
                   .listen((location) {
-                if (location != null) {
+                if (location != null && !location.isExpiredWithGrace(graceMs: 30000)) {
                   _activeFriendLocations[friendUid] = location;
                   _calculateDistanceForFriend(friendUid, location);
                 } else {
-                  // Friend stopped sharing
+                  // Friend stopped sharing or session expired
                   _activeFriendLocations.remove(friendUid);
                   _friendDistances.remove(friendUid);
                 }

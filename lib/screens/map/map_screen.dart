@@ -154,6 +154,21 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
+  String _formatRemainingTimeText(int expiresAt) {
+    final remainingMs = expiresAt - DateTime.now().millisecondsSinceEpoch;
+    if (remainingMs <= 0) return 'Expiring now';
+    final totalMinutes = (remainingMs / 60000).ceil();
+    if (totalMinutes >= 60) {
+      final hours = totalMinutes ~/ 60;
+      final minutes = totalMinutes % 60;
+      return minutes > 0 ? '$hours h $minutes m left' : '$hours h left';
+    } else if (totalMinutes > 1) {
+      return '$totalMinutes mins left';
+    } else {
+      return '< 1 min left';
+    }
+  }
+
   void _showFriendDetailsSheet(ConnectionUser friend, LocationModel location, double? distanceMeters) {
     final formattedDistance = distanceMeters != null
         ? LocationProvider.formatDistance(distanceMeters)
@@ -276,6 +291,36 @@ class _MapScreenState extends State<MapScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                if (location.expiresAt != null && !location.isExpired) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFFBBF24).withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.timer_outlined, size: 16, color: Color(0xFFFBBF24)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Timed Session: ${_formatRemainingTimeText(location.expiresAt!)}',
+                            style: const TextStyle(
+                              color: Color(0xFFFBBF24),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
