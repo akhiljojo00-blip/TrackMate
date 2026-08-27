@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:provider/provider.dart';
 import 'package:trackmate/data/user_guide_data.dart';
-import 'package:trackmate/providers/auth_provider.dart';
 import 'package:trackmate/screens/guide/user_guide_screen.dart';
 import 'package:trackmate/screens/guide/widgets/feedback_dialog.dart';
 
@@ -110,7 +108,7 @@ void main() {
       expect(find.text('Feature Request'), findsOneWidget);
 
       // Tap Submit with empty text
-      await tester.tap(find.text('Submit'));
+      await tester.tap(find.text('Submit & Send'));
       await tester.pumpAndSettle();
 
       expect(find.text('Please provide at least 5 characters.'), findsOneWidget);

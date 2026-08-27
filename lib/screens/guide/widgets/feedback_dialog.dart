@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../constants/app_colors.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../services/database_service.dart';
@@ -8,6 +9,8 @@ class FeedbackDialog extends StatefulWidget {
   final DatabaseService? databaseService;
 
   const FeedbackDialog({super.key, this.databaseService});
+
+  static const String developerEmail = 'akhiljojo00@gmail.com';
 
   static Future<void> show(BuildContext context, {DatabaseService? databaseService}) {
     return showDialog<void>(
@@ -49,18 +52,21 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final uid = authProvider.user?.uid ?? 'anonymous_user';
       final username = authProvider.userModel?.username ?? 'anonymous';
+      final userEmail = authProvider.user?.email ?? authProvider.userModel?.email ?? 'N/A';
+      final message = _messageController.text.trim();
 
       final feedbackPayload = {
         'uid': uid,
         'username': username,
+        'email': userEmail,
         'category': _selectedCategory,
         'rating': _rating,
-        'message': _messageController.text.trim(),
+        'message': message,
         'timestamp': DateTime.now().millisecondsSinceEpoch,
-        'appVersion': '1.4.1',
+        'appVersion': '1.5.0',
       };
 
-      // Write to Realtime Database /feedback if service available
+      // 1. Record payload to Realtime Database /feedback/$uid
       final db = widget.databaseService ?? DatabaseService();
       try {
         final feedbackRef = db.usersRef.root.child('feedback').child(uid).push();
@@ -69,11 +75,42 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         debugPrint('Notice: unable to write feedback to remote DB: $e');
       }
 
+      // 2. Direct Developer Email Dispatch via mailto: intent
+      final subject = '[TrackMate Feedback] [$_selectedCategory] from @$username';
+      final body = '''
+TrackMate User Feedback Report
+----------------------------------------
+User: @$username (Email: $userEmail)
+User ID: $uid
+Category: $_selectedCategory
+Satisfaction Rating: $_rating / 5 Stars
+App Version: 1.5.0
+
+Details:
+$message
+----------------------------------------
+Sent from TrackMate Mobile App
+''';
+
+      final emailUri = Uri(
+        scheme: 'mailto',
+        path: FeedbackDialog.developerEmail,
+        query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
+      );
+
+      try {
+        if (await canLaunchUrl(emailUri)) {
+          await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+        }
+      } catch (e) {
+        debugPrint('Notice: email client launcher note: $e');
+      }
+
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Thank you! Your feedback has been submitted.'),
+            content: Text('Thank you! Your feedback has been submitted to the developer.'),
             backgroundColor: Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
           ),
@@ -136,9 +173,9 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                             ),
                           ),
                           Text(
-                            'Help us improve TrackMate',
+                            'Direct to developer: ${FeedbackDialog.developerEmail}',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: isDark ? Colors.white60 : Colors.black54,
                             ),
                           ),
@@ -158,7 +195,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                 ),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: _selectedCategory,
+                  initialValue: _selectedCategory,
                   dropdownColor: isDark ? const Color(0xFF13284F) : Colors.white,
                   decoration: InputDecoration(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -265,7 +302,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Submit'),
+                          : const Text('Submit & Send'),
                     ),
                   ],
                 ),

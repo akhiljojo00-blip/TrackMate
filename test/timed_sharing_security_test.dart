@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackmate/constants/app_constants.dart';
 import 'package:trackmate/models/connection_model.dart';
 import 'package:trackmate/models/location_model.dart';
-import 'package:trackmate/models/user_model.dart';
 import 'package:trackmate/services/account_deletion_service.dart';
 
 void main() {
@@ -36,12 +35,15 @@ void main() {
         expiresAt: now + 3600000, // 1 hour
       );
 
-      // 3. Directional permission is FALSE
-      const bool hasDirectionalPermission = false;
+      // 3. Directional permission lookup
+      final permissionsMap = <String, bool>{
+        friendUid: false,
+      };
 
       // 4. Friend client must not display or process coordinates without explicit permission
       final Map<String, LocationModel> friendViewableLocations = {};
-      if (hasDirectionalPermission) {
+      final isPermitted = permissionsMap[connection.uid] ?? false;
+      if (isPermitted) {
         friendViewableLocations[connection.uid] = ownerLocation;
       }
 
