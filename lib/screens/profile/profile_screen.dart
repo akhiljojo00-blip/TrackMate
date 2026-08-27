@@ -8,6 +8,8 @@ import '../../providers/location_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
+import '../guide/user_guide_screen.dart';
+import '../guide/widgets/feedback_dialog.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -523,7 +525,60 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 16),
+
+              // Help & Support / Living User Guide Card
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 20),
+                      ),
+                      title: const Text('Living User Manual', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('Feature guides, privacy rules & instructions', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const UserGuideScreen()),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1, indent: 56),
+                    ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.rate_review_outlined, color: Color(0xFF10B981), size: 20),
+                      ),
+                      title: const Text('Send Feedback', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: const Text('Request features or report issues', style: TextStyle(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right, size: 20),
+                      onTap: () => FeedbackDialog.show(context),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
 
               // Edit Profile Button
               ElevatedButton.icon(
