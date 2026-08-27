@@ -18,7 +18,8 @@
             android:name="com.baseflow.geolocator.GeolocatorLocationService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="location" />
+            android:foregroundServiceType="location"
+            android:stopWithTask="true" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
