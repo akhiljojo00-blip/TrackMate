@@ -10,6 +10,7 @@ import 'providers/connection_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/sos_provider.dart';
 import 'providers/connectivity_provider.dart';
+import 'screens/auth/auth_gate.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/map/map_screen.dart';
 import 'screens/splash/splash_screen.dart';
@@ -70,12 +71,6 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = context.watch<AuthProvider>();
-
-    if (authProvider.isAuthenticated) {
-      return const MapScreen();
-    } else {
-      return const LoginScreen();
-    }
+    return const AuthGate();
   }
 }

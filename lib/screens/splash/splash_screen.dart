@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 import '../auth/login_screen.dart';
+import '../auth/auth_gate.dart';
 import '../map/map_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -83,9 +84,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     if (!mounted) return;
 
-    final targetWidget = authProvider.isAuthenticated
-        ? const MapScreen()
-        : const LoginScreen();
+    const targetWidget = AuthGate();
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
