@@ -108,10 +108,35 @@ void main() {
       expect(find.text('Feature Request'), findsOneWidget);
 
       // Tap Submit with empty text
-      await tester.tap(find.text('Submit & Send'));
+      await tester.tap(find.text('Submit Feedback'));
       await tester.pumpAndSettle();
 
       expect(find.text('Please provide at least 5 characters.'), findsOneWidget);
+    });
+
+    testWidgets('FeedbackDialog checkbox toggles alsoOpenEmail state', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () => FeedbackDialog.show(context),
+                child: const Text('Open Feedback'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open Feedback'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Also open in email client app'), findsOneWidget);
+      final checkboxFinder = find.byType(Checkbox);
+      expect(checkboxFinder, findsOneWidget);
+
+      await tester.tap(checkboxFinder);
+      await tester.pumpAndSettle();
     });
   });
 }

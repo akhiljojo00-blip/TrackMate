@@ -23,6 +23,8 @@ import '../connections/connections_screen.dart';
 import '../profile/profile_screen.dart';
 import '../geofence/geofence_list_screen.dart';
 import '../diagnostics/diagnostics_screen.dart';
+import '../guide/user_guide_screen.dart';
+import '../guide/widgets/feedback_dialog.dart';
 import '../auth/login_screen.dart';
 import 'widgets/timed_sharing_bottom_sheet.dart';
 import 'widgets/active_sharing_hud.dart';
@@ -845,6 +847,28 @@ class _MapScreenState extends State<MapScreen> {
                     builder: (_) => const DiagnosticsScreen(),
                   ),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.menu_book_outlined),
+              title: const Text('User Manual & Help'),
+              subtitle: const Text('Invariants, timed sharing & guides'),
+              onTap: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const UserGuideScreen(),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.rate_review_outlined),
+              title: const Text('Send Feedback'),
+              subtitle: const Text('Report bugs or suggest features'),
+              onTap: () {
+                Navigator.of(context).pop();
+                FeedbackDialog.show(context);
               },
             ),
             ListTile(

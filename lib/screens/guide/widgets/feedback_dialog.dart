@@ -29,6 +29,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
   String _selectedCategory = 'Feature Request';
   int _rating = 5;
   bool _isSubmitting = false;
+  bool _alsoOpenEmail = false;
 
   static const List<String> _categories = [
     'Feature Request',
@@ -66,7 +67,7 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         'appVersion': '1.5.0',
       };
 
-      // 1. Record payload to Realtime Database /feedback/$uid
+      // 1. 100% In-App Submission: Record payload to Realtime Database /feedback/$uid
       final db = widget.databaseService ?? DatabaseService();
       try {
         final feedbackRef = db.usersRef.root.child('feedback').child(uid).push();
@@ -75,9 +76,10 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         debugPrint('Notice: unable to write feedback to remote DB: $e');
       }
 
-      // 2. Direct Developer Email Dispatch via mailto: intent
-      final subject = '[TrackMate Feedback] [$_selectedCategory] from @$username';
-      final body = '''
+      // 2. Optional External Email Dispatch if toggled
+      if (_alsoOpenEmail) {
+        final subject = '[TrackMate Feedback] [$_selectedCategory] from @$username';
+        final body = '''
 TrackMate User Feedback Report
 ----------------------------------------
 User: @$username (Email: $userEmail)
@@ -92,25 +94,26 @@ $message
 Sent from TrackMate Mobile App
 ''';
 
-      final emailUri = Uri(
-        scheme: 'mailto',
-        path: FeedbackDialog.developerEmail,
-        query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
-      );
+        final emailUri = Uri(
+          scheme: 'mailto',
+          path: FeedbackDialog.developerEmail,
+          query: 'subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}',
+        );
 
-      try {
-        if (await canLaunchUrl(emailUri)) {
-          await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+        try {
+          if (await canLaunchUrl(emailUri)) {
+            await launchUrl(emailUri, mode: LaunchMode.externalApplication);
+          }
+        } catch (e) {
+          debugPrint('Notice: email client launcher note: $e');
         }
-      } catch (e) {
-        debugPrint('Notice: email client launcher note: $e');
       }
 
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Thank you! Your feedback has been submitted to the developer.'),
+            content: Text('Thank you! Your feedback has been submitted successfully.'),
             backgroundColor: Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
           ),
@@ -274,7 +277,24 @@ Sent from TrackMate Mobile App
                     return null;
                   },
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _alsoOpenEmail,
+                  dense: true,
+                  title: Text(
+                    'Also open in email client app',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  onChanged: (val) {
+                    setState(() => _alsoOpenEmail = val ?? false);
+                  },
+                ),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
@@ -302,7 +322,7 @@ Sent from TrackMate Mobile App
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
-                          : const Text('Submit & Send'),
+                          : const Text('Submit Feedback'),
                     ),
                   ],
                 ),
