@@ -1,0 +1,149 @@
+{
+  "rules": {
+    "users": {
+      ".indexOn": ["username", "email", "phone"],
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "usernames": {
+      ".read": "auth != null",
+      "$username": {
+        ".write": "auth != null && (data.val() === auth.uid || (!data.exists() && newData.val() === auth.uid) || (!newData.exists() && data.val() === auth.uid))"
+      }
+    },
+    "user_tokens": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "locations": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('location_permissions').child($uid).child(auth.uid).val() === true)",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "location_permissions": {
+      "$ownerUid": {
+        ".read": "auth != null && (auth.uid === $ownerUid || root.child('connections').child($ownerUid).child(auth.uid).exists())",
+        "$targetUid": {
+          ".read": "auth != null && (auth.uid === $ownerUid || auth.uid === $targetUid)",
+          ".write": "auth != null && auth.uid === $ownerUid"
+        }
+      }
+    },
+    "connections": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('connections').child($uid).child(auth.uid).exists())",
+        "$peerUid": {
+          ".read": "auth != null && (auth.uid === $uid || auth.uid === $peerUid)",
+          ".write": "auth != null && (auth.uid === $uid || auth.uid === $peerUid)"
+        }
+      }
+    },
+    "connection_requests": {
+      "$receiverUid": {
+        ".read": "auth != null && auth.uid === $receiverUid",
+        "$senderUid": {
+          ".read": "auth != null && (auth.uid === $receiverUid || auth.uid === $senderUid)",
+          ".write": "auth != null && (auth.uid === $receiverUid || auth.uid === $senderUid)"
+        }
+      }
+    },
+    "sent_requests": {
+      "$senderUid": {
+        ".read": "auth != null && auth.uid === $senderUid",
+        "$receiverUid": {
+          ".read": "auth != null && (auth.uid === $senderUid || auth.uid === $receiverUid)",
+          ".write": "auth != null && (auth.uid === $senderUid || auth.uid === $receiverUid)"
+        }
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && $chatId.contains(auth.uid)",
+        ".write": "auth != null && $chatId.contains(auth.uid)"
+      }
+    },
+    "emergency_alerts": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "groups": {
+      "$groupId": {
+        ".read": "auth != null && (root.child('group_members').child($groupId).child(auth.uid).exists() || data.child('createdBy').val() === auth.uid)",
+        ".write": "auth != null && (!data.exists() || data.child('createdBy').val() === auth.uid || root.child('group_members').child($groupId).child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
+    "group_members": {
+      "$groupId": {
+        ".read": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists()",
+        "$memberUid": {
+          ".write": "auth != null && (auth.uid === $memberUid || root.child('group_members').child($groupId).child(auth.uid).child('role').val() === 'admin' || root.child('groups').child($groupId).child('createdBy').val() === auth.uid)"
+        }
+      }
+    },
+    "user_groups": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$groupId": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('group_members').child($groupId).child(auth.uid).exists())"
+        }
+      }
+    },
+    "group_messages": {
+      "$groupId": {
+        ".read": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists()",
+        "$messageId": {
+          ".write": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists() && (newData.child('senderId').val() === auth.uid || data.child('senderId').val() === auth.uid)"
+        }
+      }
+    },
+    "group_read_state": {
+      "$groupId": {
+        "$uid": {
+          ".read": "auth != null && (auth.uid === $uid || root.child('group_members').child($groupId).child(auth.uid).exists())",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      }
+    },
+    "group_location_sessions": {
+      "$groupId": {
+        ".read": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists()",
+        ".write": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists()"
+      }
+    },
+    "group_session_participants": {
+      "$groupId": {
+        ".read": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists()",
+        "$uid": {
+          ".write": "auth != null && (auth.uid === $uid || root.child('groups').child($groupId).child('createdBy').val() === auth.uid)"
+        }
+      }
+    },
+    "group_live_locations": {
+      "$groupId": {
+        ".read": "auth != null && root.child('group_members').child($groupId).child(auth.uid).exists()",
+        "$uid": {
+          ".write": "auth != null && (auth.uid === $uid || !newData.exists())"
+        }
+      }
+    },
+    "user_geofences": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "geofence_state": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    }
+  }
+}
