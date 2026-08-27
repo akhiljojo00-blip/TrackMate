@@ -34,7 +34,17 @@ class LocationService {
     final phStatus = await Permission.location.status;
     if (!phStatus.isGranted) {
       final requested = await Permission.location.request();
-      return requested.isGranted;
+      if (!requested.isGranted) return false;
+    }
+
+    // Android 13+ (API 33+) Notification Permission check for persistent Foreground Service
+    try {
+      final notifStatus = await Permission.notification.status;
+      if (!notifStatus.isGranted) {
+        await Permission.notification.request();
+      }
+    } catch (e) {
+      debugPrint('Notice: notification permission check exception: $e');
     }
 
     return true;

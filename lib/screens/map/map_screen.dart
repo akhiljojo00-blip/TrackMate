@@ -52,7 +52,10 @@ class _MapScreenState extends State<MapScreen> {
       final user = context.read<AuthProvider>().user;
       if (user != null) {
         context.read<ConnectionProvider>().initializeForUser(user.uid);
+        await context.read<LocationProvider>().restoreTrackingStateIfActive(user.uid);
       }
+
+      if (!mounted) return;
 
       if (widget.initialFocusLocation != null) {
         _mapController.move(widget.initialFocusLocation!, 16.0);

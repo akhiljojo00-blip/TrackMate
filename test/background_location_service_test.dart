@@ -1,12 +1,15 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trackmate/providers/location_provider.dart';
 import 'package:trackmate/services/location_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('Background Location & Foreground Service Tests', () {
-    test('getForegroundLocationSettings configures notification and wakeLock parameters', () {
+    test('getForegroundLocationSettings configures notification, channel and wakeLock parameters', () {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
       final settings = LocationService.getForegroundLocationSettings(
@@ -59,6 +62,27 @@ void main() {
       expect(provider.trackingStartTime, isNull);
       expect(provider.currentPosition, isNull);
       expect(provider.currentLocationModel, isNull);
+    });
+
+    test('SharedPreferences restores inactive state correctly', () async {
+      SharedPreferences.setMockInitialValues({
+        'is_sharing_location_active_user_test': false,
+      });
+
+      final prefs = await SharedPreferences.getInstance();
+      final isActive = prefs.getBool('is_sharing_location_active_user_test');
+      expect(isActive, isFalse);
+    });
+
+    test('SharedPreferences persists active state correctly', () async {
+      SharedPreferences.setMockInitialValues({});
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_sharing_location_active_user_123', true);
+      expect(prefs.getBool('is_sharing_location_active_user_123'), isTrue);
+
+      await prefs.setBool('is_sharing_location_active_user_123', false);
+      expect(prefs.getBool('is_sharing_location_active_user_123'), isFalse);
     });
   });
 }

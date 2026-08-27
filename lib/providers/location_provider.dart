@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/connection_model.dart';
 import '../models/location_model.dart';
 import '../services/location_service.dart';
@@ -9,6 +10,8 @@ import '../services/database_service.dart';
 import '../services/geofence_service.dart';
 
 class LocationProvider extends ChangeNotifier {
+  static const String _prefKeyPrefix = 'is_sharing_location_active_';
+
   final LocationService _locationService = LocationService();
   final DatabaseService _databaseService = DatabaseService();
   final GeofenceService _geofenceService = GeofenceService();
@@ -258,6 +261,14 @@ class LocationProvider extends ChangeNotifier {
         },
       );
 
+      // Persist active tracking state locally
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('$_prefKeyPrefix$uid', true);
+      } catch (e) {
+        debugPrint('Notice: unable to persist active tracking state: $e');
+      }
+
       _setLoading(false);
       return true;
     } catch (e) {
@@ -280,12 +291,45 @@ class LocationProvider extends ChangeNotifier {
       // Update database to reflect consent revoked and remove active coordinates
       await _databaseService.updateLocationSharingConsent(uid, false);
       await _databaseService.clearUserLocation(uid);
+
+      // Persist inactive tracking state locally
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('$_prefKeyPrefix$uid', false);
+      } catch (e) {
+        debugPrint('Notice: unable to persist inactive tracking state: $e');
+      }
+
       notifyListeners();
     } catch (e) {
       _locationError = 'Error stopping location tracking: $e';
       debugPrint(_locationError);
     } finally {
       _setLoading(false);
+    }
+  }
+
+  /// Automatically restores background tracking on app startup or user session resumption
+  Future<void> restoreTrackingStateIfActive(String uid) async {
+    if (_isTracking) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localActive = prefs.getBool('$_prefKeyPrefix$uid') ?? false;
+
+      // Check remote database state as authority
+      bool remoteActive = false;
+      final profile = await _databaseService.getUserProfile(uid);
+      if (profile != null) {
+        remoteActive = profile.isLocationSharing;
+      }
+
+      if (localActive || remoteActive) {
+        debugPrint('Auto-restoring background location tracking for user $uid');
+        await startTracking(uid);
+      }
+    } catch (e) {
+      debugPrint('Error checking/restoring tracking state: $e');
     }
   }
 
