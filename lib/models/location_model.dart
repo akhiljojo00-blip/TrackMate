@@ -11,6 +11,16 @@ class LocationModel {
     modeBus,
   ];
 
+  static const String sharingTypeLive = 'live';
+  static const String sharingTypeStatic = 'static';
+  static const String sharingTypeRoute = 'route';
+
+  static const List<String> supportedSharingTypes = [
+    sharingTypeLive,
+    sharingTypeStatic,
+    sharingTypeRoute,
+  ];
+
   final String userId;
   final double latitude;
   final double longitude;
@@ -19,6 +29,8 @@ class LocationModel {
   final double? accuracy;
   final int timestamp; // epoch milliseconds
   final String travelMode;
+  final int? expiresAt; // epoch milliseconds; null represents indefinite sharing
+  final String sharingType;
 
   const LocationModel({
     required this.userId,
@@ -29,7 +41,20 @@ class LocationModel {
     this.accuracy,
     required this.timestamp,
     this.travelMode = modeWalking,
+    this.expiresAt,
+    this.sharingType = sharingTypeLive,
   });
+
+  bool get isExpired =>
+      expiresAt != null && DateTime.now().millisecondsSinceEpoch >= expiresAt!;
+
+  bool get isIndefinite => expiresAt == null;
+
+  Duration? get remainingDuration {
+    if (expiresAt == null) return null;
+    if (isExpired) return Duration.zero;
+    return Duration(milliseconds: expiresAt! - DateTime.now().millisecondsSinceEpoch);
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -41,6 +66,8 @@ class LocationModel {
       'accuracy': accuracy,
       'timestamp': timestamp,
       'travelMode': travelMode,
+      'expiresAt': expiresAt,
+      'sharingType': sharingType,
     };
   }
 
@@ -61,6 +88,21 @@ class LocationModel {
         ? rawMode
         : modeWalking;
 
+    final rawExpiresAt = map['expiresAt'];
+    int? parsedExpiresAt;
+    if (rawExpiresAt is num) {
+      parsedExpiresAt = rawExpiresAt.toInt();
+    } else if (rawExpiresAt is String) {
+      parsedExpiresAt = int.tryParse(rawExpiresAt) ??
+          DateTime.tryParse(rawExpiresAt)?.millisecondsSinceEpoch;
+    }
+
+    final rawSharingType = map['sharingType'] as String?;
+    final sharingType = (rawSharingType != null &&
+            supportedSharingTypes.contains(rawSharingType))
+        ? rawSharingType
+        : sharingTypeLive;
+
     return LocationModel(
       userId: userId,
       latitude: (map['latitude'] as num?)?.toDouble() ?? 0.0,
@@ -70,6 +112,8 @@ class LocationModel {
       accuracy: (map['accuracy'] as num?)?.toDouble(),
       timestamp: parsedTimestamp,
       travelMode: mode,
+      expiresAt: parsedExpiresAt,
+      sharingType: sharingType,
     );
   }
 
@@ -82,6 +126,9 @@ class LocationModel {
     double? accuracy,
     int? timestamp,
     String? travelMode,
+    int? expiresAt,
+    bool clearExpiresAt = false,
+    String? sharingType,
   }) {
     return LocationModel(
       userId: userId ?? this.userId,
@@ -92,6 +139,8 @@ class LocationModel {
       accuracy: accuracy ?? this.accuracy,
       timestamp: timestamp ?? this.timestamp,
       travelMode: travelMode ?? this.travelMode,
+      expiresAt: clearExpiresAt ? null : (expiresAt ?? this.expiresAt),
+      sharingType: sharingType ?? this.sharingType,
     );
   }
 }
