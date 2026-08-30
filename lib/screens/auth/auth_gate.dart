@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
-import '../map/map_screen.dart';
+import '../home/main_navigation_shell.dart';
 import 'login_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -54,7 +54,7 @@ class AuthGate extends StatelessWidget {
               debugPrint('Notice: auth gate post-frame restore: $e');
             }
           });
-          return const MapScreen();
+          return const MainNavigationShell();
         }
 
         // No active session: show login
