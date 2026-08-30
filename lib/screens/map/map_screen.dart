@@ -103,50 +103,52 @@ class _MapScreenState extends State<MapScreen> {
 
     if (currentUid == null) return;
 
-    if (locationProvider.isTracking) {
+    final option = await TimedSharingBottomSheet.show(context, isSharing: locationProvider.isTracking);
+    if (option == null || !mounted) return;
+
+    if (option.revoke) {
       await locationProvider.stopTracking(currentUid);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Live location sharing stopped.'),
             duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } else {
-      final option = await TimedSharingBottomSheet.show(context);
-      if (option == null || !mounted) return;
-
-      bool success = false;
-      if (option.duration != null) {
-        success = await locationProvider.startTimedTracking(currentUid, option.duration!);
-      } else {
-        success = await locationProvider.startTracking(currentUid);
-      }
-
-      if (success && mounted) {
-        final latLng = locationProvider.currentLatLng;
-        if (latLng != null) {
-          _mapController.move(latLng, 16.0);
-        }
-        final msg = option.duration != null
-            ? 'Live location sharing is ACTIVE (${_formatDurationMessage(option.duration!)}).'
-            : 'Live location sharing is now ACTIVE (Indefinite).';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else if (locationProvider.locationError != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(locationProvider.locationError!),
             backgroundColor: AppColors.error,
           ),
         );
       }
+      return;
+    }
+
+    bool success = false;
+    if (option.duration != null) {
+      success = await locationProvider.startTimedTracking(currentUid, option.duration!);
+    } else {
+      success = await locationProvider.startTracking(currentUid);
+    }
+
+    if (success && mounted) {
+      final latLng = locationProvider.currentLatLng;
+      if (latLng != null) {
+        _mapController.move(latLng, 16.0);
+      }
+      final msg = option.duration != null
+          ? 'Live location sharing is ACTIVE (${_formatDurationMessage(option.duration!)}).'
+          : 'Live location sharing is now ACTIVE (Indefinite).';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else if (locationProvider.locationError != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(locationProvider.locationError!),
+          backgroundColor: AppColors.error,
+        ),
+      );
     }
   }
 
@@ -1173,17 +1175,18 @@ class _MapScreenState extends State<MapScreen> {
             bottom: 16,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: isSharing ? AppColors.error : AppColors.primary,
+                backgroundColor: isSharing ? AppColors.midnightBackground : AppColors.primary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
+                  side: isSharing ? const BorderSide(color: AppColors.glassBorder) : BorderSide.none,
                 ),
                 elevation: 4,
               ),
-              icon: Icon(isSharing ? Icons.stop_circle_outlined : Icons.play_circle_outline),
+              icon: Icon(isSharing ? Icons.settings_input_antenna_rounded : Icons.play_circle_outline),
               label: Text(
-                isSharing ? 'Stop Sharing Location' : 'Start Sharing Location',
+                isSharing ? 'Manage Sharing Settings' : 'Start Sharing Location',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               onPressed: locationProvider.isLoading ? null : _handleToggleSharing,

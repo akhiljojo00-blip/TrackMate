@@ -5,56 +5,59 @@ import 'package:trackmate/screens/map/widgets/timed_sharing_bottom_sheet.dart';
 
 void main() {
   group('Timed Location Sharing UI & HUD Tests', () {
-    testWidgets('TimedSharingBottomSheet renders duration presets', (tester) async {
-      SharingDurationOption? selected;
-
+    testWidgets('TimedSharingBottomSheet renders consent duration picker', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: TimedSharingBottomSheet(
-              onDurationSelected: (option) {
-                selected = option;
+            body: Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  onPressed: () async {
+                    await TimedSharingBottomSheet.show(context, isSharing: false);
+                  },
+                  child: const Text('Open'),
+                );
               },
             ),
           ),
         ),
       );
 
-      expect(find.text('Share Live Location'), findsOneWidget);
-      expect(find.text('30 Minutes'), findsOneWidget);
-      expect(find.text('1 Hour'), findsOneWidget);
-      expect(find.text('2 Hours'), findsOneWidget);
-      expect(find.text('Until a Specific Time'), findsOneWidget);
-      expect(find.text('Until Turned Off'), findsOneWidget);
-
-      // Select 30 Minutes
-      await tester.tap(find.text('30 Minutes'));
+      await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(selected, isNotNull);
-      expect(selected!.duration, equals(const Duration(minutes: 30)));
+      expect(find.text('Location Consent'), findsOneWidget);
+      expect(find.text('15m'), findsOneWidget);
+      expect(find.text('1h'), findsOneWidget);
+      expect(find.text('8h'), findsOneWidget);
+      expect(find.text('Until Off'), findsOneWidget);
+      expect(find.text('Start Sharing Location'), findsOneWidget);
+      expect(find.text('Stop Sharing Now'), findsNothing);
     });
 
-    testWidgets('TimedSharingBottomSheet indefinite selection returns null duration', (tester) async {
-      SharingDurationOption? selected;
-
+    testWidgets('TimedSharingBottomSheet shows revoke button if currently sharing', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: TimedSharingBottomSheet(
-              onDurationSelected: (option) {
-                selected = option;
+            body: Builder(
+              builder: (context) {
+                return ElevatedButton(
+                  onPressed: () async {
+                    await TimedSharingBottomSheet.show(context, isSharing: true);
+                  },
+                  child: const Text('Open'),
+                );
               },
             ),
           ),
         ),
       );
 
-      await tester.tap(find.text('Until Turned Off'));
+      await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(selected, isNotNull);
-      expect(selected!.duration, isNull);
+      expect(find.text('Update Consent Settings'), findsOneWidget);
+      expect(find.text('Stop Sharing Now'), findsOneWidget);
     });
 
     testWidgets('ActiveSharingHud renders inactive state when isTracking is false', (tester) async {

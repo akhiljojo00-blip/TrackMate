@@ -1,97 +1,62 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
+import '../../../widgets/consent_duration_picker.dart';
 
 class SharingDurationOption {
   final Duration? duration; // null represents indefinite / continuous sharing
-  const SharingDurationOption(this.duration);
+  final bool revoke;
+  const SharingDurationOption(this.duration, {this.revoke = false});
 }
 
-class TimedSharingBottomSheet extends StatelessWidget {
-  final void Function(SharingDurationOption option) onDurationSelected;
+class TimedSharingBottomSheet extends StatefulWidget {
+  final bool isCurrentlySharing;
 
   const TimedSharingBottomSheet({
     super.key,
-    required this.onDurationSelected,
+    required this.isCurrentlySharing,
   });
 
-  static Future<SharingDurationOption?> show(BuildContext context) {
+  static Future<SharingDurationOption?> show(BuildContext context, {bool isSharing = false}) {
     return showModalBottomSheet<SharingDurationOption?>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => TimedSharingBottomSheet(
-        onDurationSelected: (option) {
-          Navigator.of(ctx).pop(option);
-        },
-      ),
+      builder: (ctx) => TimedSharingBottomSheet(isCurrentlySharing: isSharing),
     );
   }
 
-  Future<void> _handleCustomTime(BuildContext context) async {
-    final now = TimeOfDay.now();
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(
-        hour: (now.hour + 1) % 24,
-        minute: now.minute,
-      ),
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              surface: Color(0xFF0F1F3D),
-              onSurface: Colors.white,
-            ),
-          ),
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
-    );
+  @override
+  State<TimedSharingBottomSheet> createState() => _TimedSharingBottomSheetState();
+}
 
-    if (pickedTime != null && context.mounted) {
-      final nowDt = DateTime.now();
-      var targetDt = DateTime(
-        nowDt.year,
-        nowDt.month,
-        nowDt.day,
-        pickedTime.hour,
-        pickedTime.minute,
-      );
+class _TimedSharingBottomSheetState extends State<TimedSharingBottomSheet> {
+  int _selectedDurationIndex = 1; // Default to 1h
+  final List<Duration?> _durations = [
+    const Duration(minutes: 15),
+    const Duration(hours: 1),
+    const Duration(hours: 8),
+    null,
+  ];
+  final List<String> _durationLabels = ['15m', '1h', '8h', 'Until Off'];
 
-      // If target time is earlier today, assume next day
-      if (targetDt.isBefore(nowDt)) {
-        targetDt = targetDt.add(const Duration(days: 1));
-      }
+  void _handleStartSharing() {
+    final selectedDuration = _durations[_selectedDurationIndex];
+    Navigator.of(context).pop(SharingDurationOption(selectedDuration));
+  }
 
-      final diff = targetDt.difference(nowDt);
-      if (diff.inMinutes > 0) {
-        onDurationSelected(SharingDurationOption(diff));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Selected time must be in the future.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
+  void _handleRevokeSharing() {
+    Navigator.of(context).pop(const SharingDurationOption(null, revoke: true));
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF0A1426) : const Color(0xFF0F1F3D),
+          color: AppColors.midnightBackground,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.1),
-            width: 1,
-          ),
+          border: Border.all(color: AppColors.glassBorder, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.6),
@@ -102,14 +67,14 @@ class TimedSharingBottomSheet extends StatelessWidget {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Drag Handle
             Center(
               child: Container(
                 width: 44,
                 height: 4,
-                margin: const EdgeInsets.only(bottom: 18),
+                margin: const EdgeInsets.only(bottom: 24),
                 decoration: BoxDecoration(
                   color: Colors.white24,
                   borderRadius: BorderRadius.circular(2),
@@ -131,20 +96,20 @@ class TimedSharingBottomSheet extends StatelessWidget {
                     ),
                   ),
                   child: const Icon(
-                    Icons.timer_outlined,
-                    color: Color(0xFF00B4D8),
+                    Icons.security_rounded,
+                    color: AppColors.sapphireGlow,
                     size: 24,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Share Live Location',
+                        'Location Consent',
                         style: TextStyle(
-                          fontSize: 18,
+                          fontSize: 20,
                           fontWeight: FontWeight.w800,
                           color: Colors.white,
                           letterSpacing: 0.5,
@@ -152,9 +117,9 @@ class TimedSharingBottomSheet extends StatelessWidget {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'Choose how long friends can see your position',
+                        'Control who sees your position',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
                           color: Colors.white60,
                         ),
                       ),
@@ -163,181 +128,104 @@ class TimedSharingBottomSheet extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 32),
 
-            // Options List
-            _DurationOptionCard(
-              title: '30 Minutes',
-              subtitle: 'Quick trips and short meetups',
-              icon: Icons.timer_outlined,
-              badgeText: '30 MIN',
-              onTap: () => onDurationSelected(const SharingDurationOption(Duration(minutes: 30))),
-            ),
-            const SizedBox(height: 10),
-
-            _DurationOptionCard(
-              title: '1 Hour',
-              subtitle: 'Standard commute or dinner hangout',
-              icon: Icons.hourglass_bottom_rounded,
-              badgeText: '1 HOUR',
-              isRecommended: true,
-              onTap: () => onDurationSelected(const SharingDurationOption(Duration(hours: 1))),
-            ),
-            const SizedBox(height: 10),
-
-            _DurationOptionCard(
-              title: '2 Hours',
-              subtitle: 'Longer outdoor activities and events',
-              icon: Icons.schedule_rounded,
-              badgeText: '2 HOURS',
-              onTap: () => onDurationSelected(const SharingDurationOption(Duration(hours: 2))),
-            ),
-            const SizedBox(height: 10),
-
-            _DurationOptionCard(
-              title: 'Until a Specific Time',
-              subtitle: 'Pick a custom time today',
-              icon: Icons.edit_calendar_rounded,
-              badgeText: 'CUSTOM',
-              onTap: () => _handleCustomTime(context),
-            ),
-            const SizedBox(height: 10),
-
-            _DurationOptionCard(
-              title: 'Until Turned Off',
-              subtitle: 'Continuous sharing until manually stopped',
-              icon: Icons.all_inclusive_rounded,
-              badgeText: 'INDEFINITE',
-              onTap: () => onDurationSelected(const SharingDurationOption(null)),
+            // Duration Selector
+            const Text(
+              'SHARE DURATION',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.white54,
+                letterSpacing: 1.2,
+              ),
             ),
             const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DurationOptionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final String badgeText;
-  final bool isRecommended;
-  final VoidCallback onTap;
-
-  const _DurationOptionCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.badgeText,
-    this.isRecommended = false,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        splashColor: AppColors.primary.withValues(alpha: 0.2),
-        highlightColor: AppColors.primary.withValues(alpha: 0.1),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: isRecommended
-                ? const Color(0xFF142B58).withValues(alpha: 0.6)
-                : Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isRecommended
-                  ? const Color(0xFF00B4D8).withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.08),
-              width: isRecommended ? 1.5 : 1,
+            ConsentDurationPicker(
+              options: _durationLabels,
+              selectedIndex: _selectedDurationIndex,
+              onSelected: (index) {
+                setState(() {
+                  _selectedDurationIndex = index;
+                });
+              },
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: isRecommended
-                      ? const Color(0xFF00B4D8).withValues(alpha: 0.2)
-                      : Colors.white.withValues(alpha: 0.08),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: isRecommended ? const Color(0xFF00B4D8) : Colors.white70,
-                ),
+            const SizedBox(height: 32),
+
+            // Precision Selector Card (UI visual placeholder for design)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F1B2B), // GlassSurface
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.glassBorder),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              child: Row(
+                children: [
+                  const Icon(Icons.gps_fixed_rounded, color: AppColors.solarGold),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: isRecommended ? FontWeight.w700 : FontWeight.w600,
-                            color: Colors.white,
-                          ),
+                          'Exact Precision',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                         ),
-                        if (isRecommended) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF00B4D8).withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'POPULAR',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF00B4D8),
-                              ),
-                            ),
-                          ),
-                        ],
+                        SizedBox(height: 2),
+                        Text(
+                          'High accuracy GPS telemetry',
+                          style: TextStyle(fontSize: 12, color: Colors.white60),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white60,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  badgeText,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white70,
-                    letterSpacing: 0.5,
                   ),
+                  Switch(
+                    value: true, // Hardcoded for this mockup phase
+                    onChanged: (val) {},
+                    activeColor: AppColors.solarGold,
+                    activeTrackColor: AppColors.solarGold.withValues(alpha: 0.3),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Primary Action Buttons
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 4,
+              ),
+              onPressed: _handleStartSharing,
+              child: Text(
+                widget.isCurrentlySharing ? 'Update Consent Settings' : 'Start Sharing Location',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+
+            if (widget.isCurrentlySharing) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.revocationCrimson,
+                  side: const BorderSide(color: AppColors.revocationCrimson, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
+                icon: const Icon(Icons.power_settings_new_rounded),
+                label: const Text(
+                  'Stop Sharing Now',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                onPressed: _handleRevokeSharing,
               ),
             ],
-          ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );
