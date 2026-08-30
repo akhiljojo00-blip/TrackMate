@@ -8,6 +8,16 @@ class AppColors {
   static const Color error = Color(0xFFD32F2F);
   static const Color success = Color(0xFF388E3C);
 
+  // Midnight Sapphire & Solar Gold Tokens
+  static const Color midnightBackground = Color(0xFF070D18);
+  static const Color glassSurface = Color(0xD90F1B2B); // 85% opacity
+  static const Color glassBorder = Color(0x331E88E5); // 20% opacity
+  static const Color sapphireGlow = Color(0xFF64B5F6);
+  static const Color solarGold = Color(0xFFFFD54F);
+  static const Color broadcastLive = Color(0xFF00E676);
+  static const Color broadcastBlurred = Color(0xFFFFA000);
+  static const Color revocationCrimson = Color(0xFFFF1744);
+
   // Light Mode Tokens
   static const Color background = Color(0xFFF8F9FA);
   static const Color surface = Colors.white;
