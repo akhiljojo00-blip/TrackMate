@@ -9,6 +9,7 @@ import '../../models/group_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/connection_provider.dart';
 import '../../services/database_service.dart';
+import '../../widgets/glass_card.dart';
 
 class GroupInfoScreen extends StatefulWidget {
   final GroupModel group;
@@ -340,8 +341,12 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
     final connectionMap = {for (var c in connectionProvider.connections) c.uid: c};
 
     return Scaffold(
+      backgroundColor: AppColors.midnightBackground,
       appBar: AppBar(
-        title: const Text('Group Info'),
+        backgroundColor: AppColors.midnightBackground,
+        title: const Text('Group Info', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        elevation: 0,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -350,19 +355,9 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header Card
-              Container(
+              GlassCard(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
+                borderRadius: 20,
                 child: Column(
                   children: [
                     Container(
@@ -397,7 +392,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -407,7 +402,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                         _currentGroup.description!,
                         style: const TextStyle(
                           fontSize: 13,
-                          color: AppColors.textSecondary,
+                          color: Colors.white70,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -417,7 +412,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                       'Created on $createdDate',
                       style: const TextStyle(
                         fontSize: 11,
-                        color: AppColors.textSecondary,
+                        color: Colors.white54,
                       ),
                     ),
                   ],
@@ -449,7 +444,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: Colors.white,
                             ),
                           ),
                           if (isAdmin)
@@ -462,23 +457,14 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
+                      GlassCard(
+                        padding: EdgeInsets.zero,
+                        borderRadius: 16,
                         child: ListView.separated(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: members.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
+                          separatorBuilder: (_, _) => Divider(height: 1, color: Colors.white.withValues(alpha: 0.1)),
                           itemBuilder: (context, index) {
                             final member = members[index];
                             final isMe = member.uid == currentUid;
@@ -494,7 +480,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                               contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
                               leading: CircleAvatar(
                                 radius: 18,
-                                backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+                                backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                                 child: Text(
                                   displayName.isNotEmpty ? displayName[0].toUpperCase() : 'M',
                                   style: const TextStyle(
@@ -508,19 +494,20 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                                 style: TextStyle(
                                   fontWeight: isMe ? FontWeight.bold : FontWeight.w600,
                                   fontSize: 14,
+                                  color: Colors.white,
                                 ),
                               ),
                               subtitle: displayUsername.isNotEmpty
-                                  ? Text('@$displayUsername', style: const TextStyle(fontSize: 12, color: AppColors.textSecondary))
+                                  ? Text('@$displayUsername', style: const TextStyle(fontSize: 12, color: Colors.white54))
                                   : null,
                               trailing: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: member.isOwner
-                                      ? Colors.orange.withValues(alpha: 0.15)
+                                      ? AppColors.solarGold.withValues(alpha: 0.15)
                                       : (member.role == 'admin'
                                           ? AppColors.primary.withValues(alpha: 0.15)
-                                          : Colors.grey.shade200),
+                                          : Colors.white.withValues(alpha: 0.1)),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -529,10 +516,10 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> {
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: member.isOwner
-                                        ? Colors.orange.shade800
+                                        ? AppColors.solarGold
                                         : (member.role == 'admin'
                                             ? AppColors.primary
-                                            : Colors.grey.shade700),
+                                            : Colors.white70),
                                   ),
                                 ),
                               ),

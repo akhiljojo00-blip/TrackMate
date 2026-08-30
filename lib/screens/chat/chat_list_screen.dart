@@ -11,6 +11,7 @@ import '../../services/database_service.dart';
 import 'chat_screen.dart';
 import 'create_group_screen.dart';
 import 'group_chat_screen.dart';
+import '../../widgets/glass_card.dart';
 
 class ChatListScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -55,13 +56,16 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
     final connections = connectionProvider.connections;
 
     return Scaffold(
+      backgroundColor: AppColors.midnightBackground,
       appBar: AppBar(
-        title: const Text('Chats & Groups'),
+        backgroundColor: AppColors.midnightBackground,
+        title: const Text('Chats & Groups', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textSecondary,
+          indicatorColor: AppColors.solarGold,
+          labelColor: AppColors.solarGold,
+          unselectedLabelColor: Colors.white54,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           tabs: [
             Tab(
@@ -177,17 +181,17 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
                       Icon(
                         Icons.groups_outlined,
                         size: 64,
-                        color: AppColors.textSecondary.withValues(alpha: 0.4),
+                        color: Colors.white24,
                       ),
                       const SizedBox(height: 12),
                       const Text(
                         'No groups yet',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                       const SizedBox(height: 4),
                       const Text(
                         'Create a group to chat with multiple friends together!',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: Colors.white54),
                       ),
                       const SizedBox(height: 20),
                       ElevatedButton.icon(
@@ -211,9 +215,9 @@ class _ChatListScreenState extends State<ChatListScreen> with SingleTickerProvid
               }
 
               return ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 itemCount: groups.length,
-                separatorBuilder: (_, _) => const Divider(height: 1, indent: 70),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final group = groups[index];
                   return _GroupTile(
@@ -259,10 +263,6 @@ class _GroupTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final preset = AvatarPresets.getPreset(group.avatarPresetIndex);
 
-    final timeStr = group.lastMessageTimestamp != null
-        ? DateFormat('hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(group.lastMessageTimestamp!))
-        : '';
-
     return StreamBuilder<int?>(
       stream: databaseService.listenToGroupLastRead(
         groupId: group.id,
@@ -274,102 +274,7 @@ class _GroupTile extends StatelessWidget {
             (lastReadTimestamp == null || group.lastMessageTimestamp! > lastReadTimestamp) &&
             group.lastMessageSenderId != currentUid;
 
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          leading: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: preset.gradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Center(
-                  child: Icon(preset.icon, size: 22, color: Colors.white),
-                ),
-              ),
-              if (isUnread)
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.surface, width: 2),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  group.name,
-                  style: TextStyle(
-                    fontWeight: isUnread ? FontWeight.w900 : FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (timeStr.isNotEmpty)
-                Text(
-                  timeStr,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-                    color: isUnread ? AppColors.primary : AppColors.textSecondary,
-                  ),
-                ),
-            ],
-          ),
-          subtitle: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  group.lastMessageText != null
-                      ? '${group.lastMessageSenderName != null ? '${group.lastMessageSenderName}: ' : ''}${group.lastMessageText}'
-                      : '${group.memberCount} members',
-                  style: TextStyle(
-                    color: isUnread
-                        ? AppColors.textPrimary
-                        : (group.lastMessageText != null ? AppColors.textSecondary : AppColors.primary),
-                    fontWeight: isUnread ? FontWeight.w600 : FontWeight.normal,
-                    fontSize: 13,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: isUnread ? AppColors.primary.withValues(alpha: 0.12) : Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '${group.memberCount}',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isUnread ? AppColors.primary : Colors.grey.shade700,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        return GestureDetector(
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(
@@ -377,6 +282,97 @@ class _GroupTile extends StatelessWidget {
               ),
             );
           },
+          child: GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            borderRadius: 16,
+            child: Row(
+              children: [
+                // Avatar
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: preset.gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: preset.gradientColors.first.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Icon(preset.icon, size: 24, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                
+                // Content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        group.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${group.memberCount} members',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Trailing Active/Unread Indicator
+                if (isUnread)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.broadcastLive,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.broadcastLive,
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Text(
+                        'New',
+                        style: TextStyle(
+                          color: AppColors.broadcastLive,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
         );
       },
     );
