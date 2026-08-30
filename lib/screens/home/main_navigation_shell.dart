@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../map/map_screen.dart';
 import '../chat/chat_list_screen.dart';
-import '../connections/connections_screen.dart';
+import '../activity/activity_screen.dart';
 import '../profile/profile_screen.dart';
 import '../../widgets/glass_card.dart';
 
@@ -20,7 +20,7 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     const MapScreen(),
     const ChatListScreen(initialTabIndex: 0),
     const ChatListScreen(initialTabIndex: 1),
-    const ConnectionsScreen(),
+    const ActivityScreen(),
     const ProfileScreen(),
   ];
 
