@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import '../../constants/app_colors.dart';
 
 class GoldenPinMarker extends StatelessWidget {
@@ -199,3 +198,4 @@ class _GoldenPinPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

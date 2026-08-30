@@ -26,7 +26,7 @@ import '../geofence/geofence_list_screen.dart';
 import '../diagnostics/diagnostics_screen.dart';
 import '../guide/user_guide_screen.dart';
 import '../guide/widgets/feedback_dialog.dart';
-import '../auth/login_screen.dart';
+import '../auth/welcome_screen.dart';
 import 'widgets/timed_sharing_bottom_sheet.dart';
 import 'widgets/active_sharing_hud.dart';
 import 'widgets/about_developer_dialog.dart';
@@ -850,7 +850,7 @@ class _MapScreenState extends State<MapScreen> {
                   await context.read<AuthProvider>().signOut();
                   if (context.mounted) {
                     Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
                       (route) => false,
                     );
                   }
@@ -1439,5 +1439,6 @@ class _EmergencyLocationMarker extends StatelessWidget {
     );
   }
 }
+
 
 

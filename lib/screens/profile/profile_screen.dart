@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/avatar_presets.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 import '../../providers/connection_provider.dart';
-import '../auth/login_screen.dart';
+import '../auth/welcome_screen.dart';
 import 'edit_profile_screen.dart';
-import '../guide/user_guide_screen.dart';
-
-import '../guide/widgets/feedback_dialog.dart';
 import '../../widgets/glass_card.dart';
 
 
@@ -55,7 +51,7 @@ class ProfileScreen extends StatelessWidget {
         await authProvider.signOut();
         if (context.mounted) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
             (route) => false,
           );
         }
@@ -204,7 +200,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           );
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(builder: (_) => const WelcomeScreen()),
             (route) => false,
           );
         } else {
@@ -416,4 +412,5 @@ class _StatItem extends StatelessWidget {
     );
   }
 }
+
 

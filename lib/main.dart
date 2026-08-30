@@ -11,8 +11,6 @@ import 'providers/chat_provider.dart';
 import 'providers/sos_provider.dart';
 import 'providers/connectivity_provider.dart';
 import 'screens/auth/auth_gate.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/map/map_screen.dart';
 import 'screens/splash/splash_screen.dart';
 import 'services/notification_service.dart';
 

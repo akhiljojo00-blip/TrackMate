@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
-import '../../widgets/glass_card.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -182,3 +181,4 @@ class WelcomeScreen extends StatelessWidget {
     );
   }
 }
+

@@ -4,7 +4,6 @@ import '../map/map_screen.dart';
 import '../chat/chat_list_screen.dart';
 import '../activity/activity_screen.dart';
 import '../profile/profile_screen.dart';
-import '../../widgets/glass_card.dart';
 
 class MainNavigationShell extends StatefulWidget {
   const MainNavigationShell({super.key});
@@ -101,3 +100,4 @@ class _MainNavigationShellState extends State<MainNavigationShell> {
     );
   }
 }
+
