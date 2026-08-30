@@ -28,6 +28,7 @@ import '../guide/widgets/feedback_dialog.dart';
 import '../auth/login_screen.dart';
 import 'widgets/timed_sharing_bottom_sheet.dart';
 import 'widgets/active_sharing_hud.dart';
+import 'widgets/about_developer_dialog.dart';
 
 class MapScreen extends StatefulWidget {
   final LatLng? initialFocusLocation;
@@ -869,6 +870,15 @@ class _MapScreenState extends State<MapScreen> {
               onTap: () {
                 Navigator.of(context).pop();
                 FeedbackDialog.show(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.info_outline_rounded),
+              title: const Text('About Developer'),
+              subtitle: const Text('Portfolio, projects & contact'),
+              onTap: () {
+                Navigator.of(context).pop();
+                AboutDeveloperDialog.show(context);
               },
             ),
             ListTile(
