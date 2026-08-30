@@ -9,7 +9,10 @@ import '../../providers/connection_provider.dart';
 import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
 import '../guide/user_guide_screen.dart';
+
 import '../guide/widgets/feedback_dialog.dart';
+import '../../widgets/glass_card.dart';
+
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -217,23 +220,22 @@ class ProfileScreen extends StatelessWidget {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
-    final locationProvider = context.watch<LocationProvider>();
     final userModel = authProvider.userModel;
-
     final preset = AvatarPresets.getPreset(userModel?.avatarPresetIndex);
-    final memberSince = userModel != null
-        ? DateFormat('MMMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(userModel.createdAt))
-        : 'Unknown';
+    final connectionProvider = context.watch<ConnectionProvider>();
 
     return Scaffold(
+      backgroundColor: AppColors.midnightBackground,
       appBar: AppBar(
-        title: const Text('My Profile'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
             tooltip: 'Edit Profile',
             onPressed: () {
               Navigator.of(context).push(
@@ -245,388 +247,137 @@ class ProfileScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header Card with Avatar and Names
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    // Avatar with Gradient
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: preset.gradientColors,
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: preset.gradientColors.first.withValues(alpha: 0.35),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+              // Avatar with Solar Gold Ring
+              Center(
+                child: Container(
+                  width: 110,
+                  height: 110,
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.solarGold.withValues(alpha: 0.8), width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.solarGold.withValues(alpha: 0.25),
+                        blurRadius: 20,
+                        spreadRadius: 2,
                       ),
-                      child: Center(
-                        child: Icon(
-                          preset.icon,
-                          size: 46,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Name & Username
-                    Text(
-                      userModel?.name ?? 'TrackMate User',
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '@${userModel?.username ?? 'username'}',
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Email
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.email_outlined, size: 14, color: AppColors.textSecondary),
-                        const SizedBox(width: 6),
-                        Text(
-                          userModel?.email ?? '',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Bio & Status Section
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.notes_rounded, size: 18, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Text(
-                          'Bio & Status',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      (userModel?.bio != null && userModel!.bio!.trim().isNotEmpty)
-                          ? userModel.bio!
-                          : 'No bio added yet. Tap "Edit Profile" to add a status.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: (userModel?.bio != null && userModel!.bio!.trim().isNotEmpty)
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Emergency Metadata Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: (userModel?.emergencyContact != null &&
-                            userModel!.emergencyContact!.trim().isNotEmpty)
-                        ? AppColors.error.withValues(alpha: 0.3)
-                        : Colors.transparent,
-                    width: 1.2,
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.emergency_outlined, size: 18, color: AppColors.error),
-                        SizedBox(width: 8),
-                        Text(
-                          'Emergency Information',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Icon(Icons.phone_outlined, size: 16, color: AppColors.textSecondary),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            (userModel?.emergencyContact != null &&
-                                    userModel!.emergencyContact!.trim().isNotEmpty)
-                                ? userModel.emergencyContact!
-                                : 'No emergency phone number set',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: (userModel?.emergencyContact != null &&
-                                      userModel!.emergencyContact!.trim().isNotEmpty)
-                                  ? AppColors.textPrimary
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Account Details Card
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Account Details',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: preset.gradientColors,
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Live Sharing Status',
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: locationProvider.isTracking
-                                ? AppColors.success.withValues(alpha: 0.15)
-                                : Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            locationProvider.isTracking ? 'Active' : 'Disabled',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: locationProvider.isTracking ? AppColors.success : Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
+                    child: Center(
+                      child: Icon(
+                        preset.icon,
+                        size: 46,
+                        color: Colors.white,
+                      ),
                     ),
-                    const Divider(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Member Since',
-                          style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                        ),
-                        Text(
-                          memberSince,
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              // Help & Support / Living User Guide Card
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+              // Name & Username
+              Text(
+                userModel?.name ?? 'TrackMate User',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
                 ),
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 20),
-                      ),
-                      title: const Text('Living User Manual', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text('Feature guides, privacy rules & instructions', style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const UserGuideScreen()),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1, indent: 56),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.rate_review_outlined, color: Color(0xFF10B981), size: 20),
-                      ),
-                      title: const Text('Send Feedback', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      subtitle: const Text('Request features or report issues', style: TextStyle(fontSize: 12)),
-                      trailing: const Icon(Icons.chevron_right, size: 20),
-                      onTap: () => FeedbackDialog.show(context),
-                    ),
-                  ],
-                ),
+                textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
-
-              // Edit Profile Button
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 2,
+              const SizedBox(height: 6),
+              Text(
+                '@',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 14,
                 ),
-                icon: const Icon(Icons.edit_rounded, size: 18),
-                label: const Text('Edit Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                onPressed: () {
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+
+              // Statistics Row
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _StatItem(label: 'Friends', value: ''),
+                  _StatItem(label: 'Groups', value: '0'),
+                  _StatItem(label: 'Safe Zones', value: '0'),
+                ],
+              ),
+              const SizedBox(height: 32),
+
+              // Edit Profile Button (GlassCard)
+              GestureDetector(
+                onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const EditProfileScreen()),
                   );
                 },
-              ),
-              const SizedBox(height: 12),
-
-              // Sign Out Button
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
-                  side: BorderSide(color: Colors.grey.shade300, width: 1.2),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                child: GlassCard(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  borderRadius: 16,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Edit Profile',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded, color: Colors.white54),
+                    ],
+                  ),
                 ),
-                icon: const Icon(Icons.logout_rounded, size: 18),
-                label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                onPressed: () => _handleSignOut(context),
               ),
-              const SizedBox(height: 12),
-
-              // Danger Zone: Delete Account Button
-              TextButton.icon(
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.error,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              const SizedBox(height: 24),
+              
+              GlassCard(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                borderRadius: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.error,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => _handleSignOut(context),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      onPressed: () => _handleDeleteAccount(context),
+                      child: const Text('Delete Account', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                 ),
-                icon: const Icon(Icons.delete_forever_rounded, size: 18, color: AppColors.error),
-                label: const Text(
-                  'Delete Account',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.error),
-                ),
-                onPressed: () => _handleDeleteAccount(context),
               ),
+              const SizedBox(height: 30),
             ],
           ),
         ),
@@ -634,3 +385,35 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 }
+
+class _StatItem extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatItem({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
