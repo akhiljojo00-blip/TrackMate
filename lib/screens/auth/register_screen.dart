@@ -4,7 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
-import '../map/map_screen.dart';
+import '../home/main_navigation_shell.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -47,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (success && mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MapScreen()),
+        MaterialPageRoute(builder: (_) => const MainNavigationShell()),
         (route) => false,
       );
     } else if (!success && mounted) {
