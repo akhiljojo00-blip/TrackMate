@@ -27,14 +27,11 @@ void main() {
       );
 
       // Verify title and subtitle are present
-      expect(find.text('TrackMate'), findsOneWidget);
-      expect(find.text('Connect  •  Share  •  Secure'), findsOneWidget);
+      expect(find.text('TRACKMATE'), findsOneWidget);
+      expect(find.text('Stay Connected. Stay Safe.'), findsOneWidget);
 
-      // Verify creator credit is present
-      expect(find.textContaining('AKHIL JOJO'), findsOneWidget);
-
-      // Verify radar icon is present
-      expect(find.byIcon(Icons.radar_rounded), findsOneWidget);
+      // Verify location icon is present
+      expect(find.byIcon(Icons.location_on), findsOneWidget);
     });
   });
 }

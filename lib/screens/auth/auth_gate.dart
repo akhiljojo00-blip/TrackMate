@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 import '../home/main_navigation_shell.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
 
 class AuthGate extends StatelessWidget {
   final Stream<User?>? customAuthStream;
@@ -57,11 +57,11 @@ class AuthGate extends StatelessWidget {
           return const MainNavigationShell();
         }
 
-        // No active session: show login
+        // No active session: show welcome
         if (unauthenticatedBuilder != null) {
           return unauthenticatedBuilder!(context);
         }
-        return const LoginScreen();
+        return const WelcomeScreen();
       },
     );
   }

@@ -4,9 +4,7 @@ import 'package:provider/provider.dart';
 import '../../constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
-import '../auth/login_screen.dart';
 import '../auth/auth_gate.dart';
-import '../map/map_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,6 +18,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late final Animation<double> _fadeAnimation;
   late final Animation<double> _scaleAnimation;
   Timer? _timer;
+  Timer? _progressTimer;
+  double _progress = 0.0;
 
   @override
   void initState() {
@@ -35,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       curve: Curves.easeOutCubic,
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(
         parent: _controller,
         curve: Curves.easeOutBack,
@@ -44,7 +44,22 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    _timer = Timer(const Duration(milliseconds: 2000), () {
+    // Fake progress bar animation
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _progress += 0.02;
+        if (_progress > 1.0) _progress = 1.0;
+      });
+      if (_progress >= 1.0) {
+        timer.cancel();
+      }
+    });
+
+    _timer = Timer(const Duration(milliseconds: 2500), () {
       _checkAuthAndNavigate();
     });
   }
@@ -78,18 +93,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         final locationProvider = context.read<LocationProvider>();
         await locationProvider.restoreTrackingStateIfActive(authProvider.user!.uid);
       } catch (e) {
-        debugPrint('Notice: background tracking state restoration on splash: $e');
+        debugPrint('Notice: background tracking state restoration on splash: ');
       }
     }
 
     if (!mounted) return;
 
-    const targetWidget = AuthGate();
-
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 400),
-        pageBuilder: (context, animation, secondaryAnimation) => targetWidget,
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -100,216 +113,188 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void dispose() {
     _timer?.cancel();
+    _progressTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        backgroundColor: const Color(0xFF070D18), // Deep Midnight OLED Navy
-        body: Stack(
-          children: [
-            // Ambient Radial Sapphire Glow
-            Center(
-              child: Container(
-                width: 320,
-                height: 320,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      const Color(0xFF142B58).withValues(alpha: 0.6),
-                      const Color(0xFF0A1832).withValues(alpha: 0.2),
-                      Colors.transparent,
-                    ],
-                    stops: const [0.0, 0.6, 1.0],
-                  ),
-                ),
+    return Scaffold(
+      backgroundColor: AppColors.midnightBackground,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Background Gradient (Deep Void to Midnight Sapphire)
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppColors.midnightBackground,
+                  Color(0xFF03060C), // Deep Void
+                ],
               ),
             ),
-
-            // Main Center Content
-            Center(
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Hero Master Brand Artwork
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF00B4D8).withValues(alpha: 0.25),
-                              blurRadius: 36,
-                              spreadRadius: 2,
-                              offset: const Offset(0, 8),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(28),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              Image.asset(
-                                'assets/branding/trackmate_logo.png',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  // Fallback radar badge if asset unavailable in test mocks
-                                  return Container(
-                                    decoration: const BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [AppColors.primary, Color(0xFF00B4D8)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.radar_rounded,
-                                        size: 60,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              // Accent Radar Icon Overlay for visual depth & test compatibility
-                              Positioned(
-                                right: 6,
-                                bottom: 6,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: const Color(0xFF070D18).withValues(alpha: 0.8),
-                                    border: Border.all(
-                                      color: const Color(0xFFFBBF24).withValues(alpha: 0.4),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.radar_rounded,
-                                    size: 14,
-                                    color: Color(0xFFFBBF24),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 28),
-
-                      // App Title
-                      const Text(
-                        'TrackMate',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-
-                      // Subtitle / Tagline
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.07),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                            width: 1,
-                          ),
-                        ),
-                        child: const Text(
-                          'Connect  •  Share  •  Secure',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white70,
-                            letterSpacing: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
+          ),
+          
+          // Glowing Orbits (Faked with multiple blurred circles)
+          Center(
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.solarGold.withValues(alpha: 0.1), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.solarGold.withValues(alpha: 0.05),
+                    blurRadius: 100,
+                    spreadRadius: 20,
                   ),
-                ),
+                ],
               ),
             ),
+          ),
+          Center(
+            child: Container(
+              width: 200,
+              height: 200,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.solarGold.withValues(alpha: 0.15), width: 1),
+              ),
+            ),
+          ),
 
-            // Bottom Right Creator Tag
-            Positioned(
-              bottom: 24,
-              right: 24,
-              child: SafeArea(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+          // Main Content
+          Center(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Golden Location Pin 3D-like Icon
+                    Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Icon(
-                          Icons.code_rounded,
-                          size: 14,
-                          color: AppColors.primary.withValues(alpha: 0.9),
-                        ),
-                        const SizedBox(width: 6),
-                        Text.rich(
-                          const TextSpan(
-                            style: TextStyle(
-                              fontSize: 11,
-                              letterSpacing: 0.8,
-                              color: Colors.white60,
-                            ),
-                            children: [
-                              TextSpan(text: 'Created By '),
-                              TextSpan(
-                                text: 'AKHIL JOJO',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.0,
-                                ),
+                        // Core Glow
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.solarGold.withValues(alpha: 0.3),
+                                blurRadius: 40,
+                                spreadRadius: 10,
                               ),
                             ],
+                          ),
+                        ),
+                        // The Pin
+                        const Icon(
+                          Icons.location_on,
+                          size: 110,
+                          color: AppColors.solarGold,
+                        ),
+                        // Inner reflection / highlight
+                        const Positioned(
+                          top: 15,
+                          child: Icon(
+                            Icons.circle,
+                            size: 32,
+                            color: AppColors.midnightBackground,
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 60),
+
+                    // App Title
+                    const Text(
+                      'TRACKMATE',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.solarGold,
+                        letterSpacing: 4.0,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Subtitle / Tagline
+                    const Text(
+                      'Stay Connected. Stay Safe.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white70,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+
+          // Progress Bar at the bottom
+          Positioned(
+            bottom: 60,
+            left: 40,
+            right: 40,
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Loading',
+                        style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                      Text(
+                        '${(_progress * 100).toInt()}%',
+                        style: const TextStyle(color: AppColors.solarGold, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 4,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      height: 4,
+                      width: MediaQuery.of(context).size.width * 0.8 * _progress,
+                      decoration: BoxDecoration(
+                        color: AppColors.solarGold,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.solarGold.withValues(alpha: 0.5),
+                            blurRadius: 6,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
-
