@@ -5,8 +5,6 @@ import '../../../constants/app_colors.dart';
 class AboutDeveloperDialog extends StatelessWidget {
   static const String developerPortfolioLiveUrl =
       'https://akhiljojo00-blip.github.io/akhil-jojo-portfolio/';
-  static const String developerPortfolioRepoUrl =
-      'https://github.com/akhiljojo00-blip/akhil-jojo-portfolio';
   static const String developerEmail = 'akhiljojo00@gmail.com';
 
   const AboutDeveloperDialog({super.key});
@@ -184,20 +182,6 @@ class AboutDeveloperDialog extends StatelessWidget {
               icon: const Icon(Icons.language_rounded, size: 18),
               label: const Text('Live Portfolio', style: TextStyle(fontWeight: FontWeight.w600)),
               onPressed: () => _launchExternalUrl(context, developerPortfolioLiveUrl),
-            ),
-            const SizedBox(height: 8),
-
-            // GitHub Portfolio Repo Button
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.white : AppColors.primary,
-                side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              icon: const Icon(Icons.code_rounded, size: 18),
-              label: const Text('Portfolio Repository', style: TextStyle(fontWeight: FontWeight.w600)),
-              onPressed: () => _launchExternalUrl(context, developerPortfolioRepoUrl),
             ),
             const SizedBox(height: 8),
 

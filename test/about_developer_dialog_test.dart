@@ -12,10 +12,6 @@ void main() {
         'https://akhiljojo00-blip.github.io/akhil-jojo-portfolio/',
       );
       expect(
-        AboutDeveloperDialog.developerPortfolioRepoUrl,
-        'https://github.com/akhiljojo00-blip/akhil-jojo-portfolio',
-      );
-      expect(
         AboutDeveloperDialog.developerEmail,
         'akhiljojo00@gmail.com',
       );
@@ -34,7 +30,7 @@ void main() {
       expect(find.text('Akhil Jojo'), findsOneWidget);
       expect(find.text('Lead Architect & Flutter Developer'), findsOneWidget);
       expect(find.text('Live Portfolio'), findsOneWidget);
-      expect(find.text('Portfolio Repository'), findsOneWidget);
+      expect(find.text('Portfolio Repository'), findsNothing);
       expect(find.text('Contact Developer'), findsOneWidget);
       expect(find.text('Close'), findsOneWidget);
     });
