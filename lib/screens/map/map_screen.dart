@@ -16,6 +16,7 @@ import '../../widgets/emergency_alert_dialog.dart';
 import '../../widgets/friends_map_sheet.dart';
 import '../../widgets/app_map_tile_layer.dart';
 import '../../widgets/connectivity_banner.dart';
+import '../../widgets/golden_pin_marker.dart';
 import '../../providers/connectivity_provider.dart';
 import '../chat/chat_screen.dart';
 import '../chat/chat_list_screen.dart';
@@ -1345,69 +1346,10 @@ class _UserLocationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final markerColor = isSharing ? AppColors.success : AppColors.primary;
-
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        if (isSharing)
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: markerColor.withValues(alpha: 0.25),
-            ),
-          ),
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: markerColor,
-            border: Border.all(color: Colors.white, width: 3),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ),
-        ),
-        if (isSharing)
-          Positioned(
-            right: 4,
-            bottom: 4,
-            child: Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: markerColor,
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              child: Center(
-                child: Icon(
-                  getTravelModeIcon(travelMode),
-                  size: 10,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-      ],
+    return GoldenPinMarker(
+      isGlowing: isSharing,
+      label: 'You',
+      travelMode: travelMode,
     );
   }
 }
@@ -1427,98 +1369,10 @@ class _FriendLocationMarker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isStale ? Colors.amber.shade900 : Colors.purple.shade600,
-                border: Border.all(
-                  color: isStale ? Colors.amber : Colors.white,
-                  width: 2.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: isStale ? Colors.amber.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.35),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              right: -2,
-              bottom: -2,
-              child: Container(
-                width: 17,
-                height: 17,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isStale ? Colors.amber.shade800 : AppColors.primary,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: Center(
-                  child: Icon(
-                    getTravelModeIcon(travelMode),
-                    size: 10,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (isStale)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade900,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Text(
-              'Signal Lost',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          )
-        else if (distanceText != null)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.75),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              distanceText!,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-      ],
+    return GoldenPinMarker(
+      isGlowing: !isStale,
+      label: name,
+      travelMode: travelMode,
     );
   }
 }
@@ -1585,4 +1439,5 @@ class _EmergencyLocationMarker extends StatelessWidget {
     );
   }
 }
+
 

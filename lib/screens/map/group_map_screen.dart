@@ -16,6 +16,7 @@ import '../../providers/location_provider.dart';
 import '../../services/database_service.dart';
 import '../../services/location_service.dart';
 import '../../widgets/app_map_tile_layer.dart';
+import '../../widgets/golden_pin_marker.dart';
 
 class GroupMapScreen extends StatefulWidget {
   final GroupModel group;
@@ -225,16 +226,11 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                       locations.forEach((uid, loc) {
                         final participant = participantMap[uid];
                         final isMe = uid == currentUid;
-                        final preset = AvatarPresets.getPreset(participant?.avatarPresetIndex);
                         final displayName = isMe
                             ? '${authProvider.userModel?.name ?? 'You'} (You)'
                             : (participant?.displayName ?? 'Member');
 
                         final isStale = (now - loc.timestamp) > 120000;
-                        final heading = loc.heading ?? 0.0;
-                        final speed = loc.speed ?? 0.0;
-                        final hasHeading = heading > 0 && speed > 0.5;
-
                         final point = LatLng(loc.latitude, loc.longitude);
                         activePoints.add(point);
 
@@ -245,92 +241,10 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
                             height: 84,
                             child: Opacity(
                               opacity: isStale ? 0.55 : 1.0,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // Callout tag
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: isStale ? Colors.amber.shade900 : Colors.black87,
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.2),
-                                          blurRadius: 4,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      isStale ? '$displayName • Signal Lost' : displayName,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-
-                                  // Direction Cone + Avatar Pin
-                                  Stack(
-                                    alignment: Alignment.center,
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      // Movement Heading Arrow
-                                      if (hasHeading)
-                                        Transform.rotate(
-                                          angle: heading * (math.pi / 180),
-                                          child: Container(
-                                            width: 48,
-                                            height: 48,
-                                            alignment: Alignment.topCenter,
-                                            child: const Icon(
-                                              Icons.navigation_rounded,
-                                              size: 16,
-                                              color: AppColors.primary,
-                                            ),
-                                          ),
-                                        ),
-
-                                      // Avatar Bubble
-                                      Container(
-                                        width: 38,
-                                        height: 38,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          gradient: LinearGradient(
-                                            colors: preset.gradientColors,
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          border: Border.all(
-                                            color: isStale
-                                                ? Colors.amber
-                                                : (isMe ? AppColors.primary : Colors.white),
-                                            width: 2.5,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: (isStale ? Colors.amber : preset.gradientColors.first)
-                                                  .withValues(alpha: 0.5),
-                                              blurRadius: 8,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Icon(
-                                            preset.icon,
-                                            size: 18,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              child: GoldenPinMarker(
+                                isGlowing: !isStale,
+                                label: isStale ? '$displayName • Signal Lost' : displayName,
+                                travelMode: isMe ? LocationModel.modeWalking : null,
                               ),
                             ),
                           ),
@@ -618,3 +532,5 @@ class _GroupMapScreenState extends State<GroupMapScreen> {
     );
   }
 }
+
+
