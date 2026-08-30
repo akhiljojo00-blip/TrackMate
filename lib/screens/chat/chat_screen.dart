@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/chat_provider.dart';
 import '../../widgets/full_screen_image_viewer.dart';
 import '../../widgets/connectivity_banner.dart';
+import '../../widgets/glass_card.dart';
 import '../map/map_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -204,7 +205,12 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       },
       child: Scaffold(
+        backgroundColor: AppColors.midnightBackground,
         appBar: AppBar(
+          backgroundColor: AppColors.midnightBackground,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          iconTheme: const IconThemeData(color: Colors.white),
           title: Row(
             children: [
               CircleAvatar(
@@ -222,12 +228,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   children: [
                     Text(
                       widget.peerName.trim().isNotEmpty ? widget.peerName : 'Deleted User',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       widget.peerUsername.trim().isNotEmpty ? '@${widget.peerUsername}' : '@deleted',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      style: const TextStyle(fontSize: 12, color: Colors.white70),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
@@ -259,17 +265,17 @@ class _ChatScreenState extends State<ChatScreen> {
                           Icon(
                             Icons.chat_bubble_outline,
                             size: 64,
-                            color: AppColors.textSecondary.withValues(alpha: 0.5),
+                            color: Colors.white24,
                           ),
                           const SizedBox(height: 12),
                           Text(
                             'No messages yet with ${widget.peerName}',
-                            style: const TextStyle(color: AppColors.textSecondary),
+                            style: const TextStyle(color: Colors.white70),
                           ),
                           const SizedBox(height: 4),
                           const Text(
                             'Say hello to start the conversation!',
-                            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                            style: TextStyle(fontSize: 12, color: Colors.white54),
                           ),
                         ],
                       ),
@@ -299,19 +305,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildInputBar(ChatProvider chatProvider) {
     final bool isBusy = chatProvider.isSending || chatProvider.isUploadingImage || chatProvider.isAcquiringLocation;
 
-    return Container(
+    return GlassCard(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.cardColor(context),
-        border: Border(top: BorderSide(color: AppColors.cardBorderColor(context))),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            offset: const Offset(0, -1),
-            blurRadius: 4,
-          ),
-        ],
-      ),
+      borderRadius: 0,
       child: SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -336,7 +332,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         chatProvider.uploadProgress > 0
                             ? 'Uploading photo ${(chatProvider.uploadProgress * 100).toInt()}%...'
                             : 'Preparing photo...',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondaryColor(context)),
+                        style: const TextStyle(fontSize: 12, color: Colors.white70),
                       ),
                     ),
                   ],
@@ -361,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     Expanded(
                       child: Text(
                         'Acquiring current GPS location...',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondaryColor(context)),
+                        style: const TextStyle(fontSize: 12, color: Colors.white70),
                       ),
                     ),
                   ],
@@ -380,26 +376,26 @@ class _ChatScreenState extends State<ChatScreen> {
                   child: TextField(
                     controller: _messageController,
                     textCapitalization: TextCapitalization.sentences,
-                    style: TextStyle(color: AppColors.textPrimaryColor(context)),
+                    style: const TextStyle(color: Colors.white),
                     maxLines: 4,
                     minLines: 1,
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      hintStyle: TextStyle(color: AppColors.textSecondaryColor(context)),
+                      hintStyle: const TextStyle(color: Colors.white54),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
-                        borderSide: BorderSide(color: AppColors.cardBorderColor(context)),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(24),
                         borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
                       ),
                       filled: true,
-                      fillColor: AppColors.inputFillColor(context),
+                      fillColor: Colors.black.withValues(alpha: 0.2),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     ),
                     onSubmitted: (_) => _handleSendMessage(),
@@ -458,19 +454,23 @@ class _MessageBubble extends StatelessWidget {
             ? const EdgeInsets.all(6)
             : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.primary : AppColors.cardColor(context),
+          // Use solid colors for bubbles to maintain 60fps scrolling
+          color: isMe ? AppColors.primary : const Color(0xFF142B58),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(16),
             topRight: const Radius.circular(16),
             bottomLeft: Radius.circular(isMe ? 16 : 4),
             bottomRight: Radius.circular(isMe ? 4 : 16),
           ),
-          border: isMe ? null : Border.all(color: AppColors.cardBorderColor(context)),
+          border: Border.all(
+            color: isMe ? AppColors.primaryDark : const Color(0xFF1E3A75),
+            width: 1,
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
@@ -575,19 +575,19 @@ class _MessageBubble extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
+                              const Text(
                                 'Shared Location',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: isMe ? Colors.white : AppColors.textPrimaryColor(context),
+                                  color: Colors.white,
                                 ),
                               ),
-                              Text(
+                              const Text(
                                 'One-time GPS snapshot',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: isMe ? Colors.white70 : AppColors.textSecondaryColor(context),
+                                  color: Colors.white70,
                                 ),
                               ),
                             ],
@@ -643,8 +643,8 @@ class _MessageBubble extends StatelessWidget {
                     : EdgeInsets.zero,
                 child: Text(
                   message.text,
-                  style: TextStyle(
-                    color: isMe ? Colors.white : AppColors.textPrimaryColor(context),
+                  style: const TextStyle(
+                    color: Colors.white,
                     fontSize: 15,
                   ),
                 ),
@@ -658,7 +658,7 @@ class _MessageBubble extends StatelessWidget {
               child: Text(
                 timeStr,
                 style: TextStyle(
-                  color: isMe ? Colors.white.withValues(alpha: 0.7) : AppColors.textSecondaryColor(context),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 10,
                 ),
               ),
