@@ -29,6 +29,8 @@ import '../auth/login_screen.dart';
 import 'widgets/timed_sharing_bottom_sheet.dart';
 import 'widgets/active_sharing_hud.dart';
 import 'widgets/about_developer_dialog.dart';
+import '../../widgets/glass_card.dart';
+import '../../widgets/radar_pulse_badge.dart';
 
 class MapScreen extends StatefulWidget {
   final LatLng? initialFocusLocation;
@@ -46,6 +48,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _hasInitialCentered = false;
   bool _isEmergencyDialogOpen = false;
   String? _activeDialogAlertUid;
@@ -695,72 +698,8 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Trackmate'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shield_outlined),
-            tooltip: 'Manage Sharing',
-            onPressed: _showPrivacyManagementSheet,
-          ),
-          IconButton(
-            icon: Badge(
-              isLabelVisible: pendingRequestsCount > 0,
-              label: Text('$pendingRequestsCount'),
-              child: const Icon(Icons.people_outline),
-            ),
-            tooltip: 'Connections',
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const ConnectionsScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sign Out',
-            onPressed: () async {
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Sign Out'),
-                  content: const Text('Are you sure you want to sign out?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(true),
-                      child: const Text('Sign Out', style: TextStyle(color: AppColors.error)),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirm == true && context.mounted) {
-                final uid = authProvider.user?.uid;
-                if (uid != null && locationProvider.isTracking) {
-                  await locationProvider.stopTracking(uid);
-                }
-                locationProvider.clearAllFriendSubscriptions();
-                if (context.mounted) {
-                  context.read<ConnectionProvider>().clear();
-                  await context.read<AuthProvider>().signOut();
-                  if (context.mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      (route) => false,
-                    );
-                  }
-                }
-              }
-            },
-          ),
-        ],
-      ),
+      key: _scaffoldKey,
+      extendBodyBehindAppBar: true,
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -978,10 +917,52 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
+          // Top Floating Header (Replaces AppBar)
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            right: 16,
+            child: GlassCard(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              borderRadius: 32,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                    child: const Icon(Icons.menu_rounded, color: Colors.white, size: 28),
+                  ),
+                  const Spacer(),
+                  RadarPulseBadge(
+                    mode: isSharing ? BroadcastMode.live : BroadcastMode.ghost,
+                    label: isSharing ? 'LIVE' : 'GHOST',
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: _showPrivacyManagementSheet,
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppColors.primary,
+                      child: Text(
+                        (userModel?.name.isNotEmpty == true)
+                            ? userModel!.name[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // Top Emergency Banner or Normal Status Pill
           if (sosProvider.isTriggered)
             Positioned(
-              top: 16,
+              top: MediaQuery.of(context).padding.top + 80,
               left: 16,
               right: 16,
               child: Container(
@@ -1060,7 +1041,7 @@ class _MapScreenState extends State<MapScreen> {
             // Floating Travel Mode Selector (Visible when sharing is active)
             if (isSharing)
               Positioned(
-                top: 58,
+                top: MediaQuery.of(context).padding.top + 80,
                 left: 20,
                 right: 20,
                 child: Center(
