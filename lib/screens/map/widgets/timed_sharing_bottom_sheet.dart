@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../constants/app_colors.dart';
 import '../../../widgets/consent_duration_picker.dart';
+import '../../../widgets/custom_switch.dart';
 
 class SharingDurationOption {
   final Duration? duration; // null represents indefinite / continuous sharing
@@ -180,11 +181,10 @@ class _TimedSharingBottomSheetState extends State<TimedSharingBottomSheet> {
                       ],
                     ),
                   ),
-                  Switch(
+                  CustomSwitch(
                     value: true, // Hardcoded for this mockup phase
                     onChanged: (val) {},
                     activeColor: AppColors.solarGold,
-                    activeTrackColor: AppColors.solarGold.withValues(alpha: 0.3),
                   ),
                 ],
               ),
@@ -231,3 +231,4 @@ class _TimedSharingBottomSheetState extends State<TimedSharingBottomSheet> {
     );
   }
 }
+
